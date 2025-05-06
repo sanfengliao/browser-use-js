@@ -1,11 +1,8 @@
 {
   "compilerOptions": {
     "target": "ESNext",
-    "lib": ["ESNext", "DOM", "ES2020"],
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
     "rootDir": "./",
-    "module": "ESNext",
+    "module": "CommonJS",
     "moduleResolution": "node",
     "strict": true,
     "declaration": true,
