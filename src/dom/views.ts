@@ -179,7 +179,7 @@ class DOMElementNode extends DOMBaseNode {
   }
 
   get hash(): HashedDomElement {
-    return HistoryTreeProcessor._hashDomElement(this)
+    return HistoryTreeProcessor.hashDomElement(this)
   }
 
   set hash(value: HashedDomElement) {
@@ -353,14 +353,9 @@ class DOMElementNode extends DOMBaseNode {
 
 type SelectorMap = Map<number, DOMElementNode>
 
-class DOMState {
+interface DOMState {
   elementTree: DOMElementNode
   selectorMap: SelectorMap
-
-  constructor(elementTree: DOMElementNode, selectorMap: SelectorMap) {
-    this.elementTree = elementTree
-    this.selectorMap = selectorMap
-  }
 }
 
 export {

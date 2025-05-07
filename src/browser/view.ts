@@ -1,13 +1,12 @@
 import type { DOMHistoryElement } from '../dom/history_tree_processor/view'
-import type { DOMElementNode, SelectorMap } from '../dom/views'
-import { DOMState } from '../dom/views'
+import type { DOMElementNode, DOMState, SelectorMap } from '../dom/views'
 
 // 定义 TabInfo 接口
 interface ITabInfo {
   pageId: number
   url: string
   title: string
-  parentPageId?: number | null // 包含此弹出窗口或跨源 iframe 的父页面
+  parentPageId?: number // 包含此弹出窗口或跨源 iframe 的父页面
 }
 
 // TabInfo 类实现
@@ -15,7 +14,7 @@ export class TabInfo implements ITabInfo {
   pageId: number
   url: string
   title: string
-  parentPageId?: number | null
+  parentPageId?: number
 
   constructor(data: ITabInfo) {
     this.pageId = data.pageId
@@ -35,35 +34,15 @@ export class TabInfo implements ITabInfo {
 }
 
 // BrowserState 类
-export class BrowserState extends DOMState {
+export interface BrowserState extends DOMState {
   url: string
   title: string
   tabs: TabInfo[]
   screenshot?: string
-  pixelsAbove: number
-  pixelsBelow: number
-  browserErrors: string[]
+  pixelsAbove?: number
+  pixelsBelow?: number
+  browserErrors?: string[]
 
-  constructor(data: {
-    url: string
-    title: string
-    tabs: TabInfo[]
-    screenshot?: string
-    pixelsAbove?: number
-    pixelsBelow?: number
-    browserErrors?: string[]
-    elementTree: DOMElementNode
-    selectorMap: SelectorMap
-  }) {
-    super(data.elementTree, data.selectorMap)
-    this.url = data.url
-    this.title = data.title
-    this.tabs = data.tabs
-    this.screenshot = data.screenshot
-    this.pixelsAbove = data.pixelsAbove || 0
-    this.pixelsBelow = data.pixelsBelow || 0
-    this.browserErrors = data.browserErrors || []
-  }
 }
 
 // BrowserStateHistory 类

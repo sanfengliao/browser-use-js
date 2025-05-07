@@ -2,6 +2,8 @@ import type { Page } from 'playwright'
 import type { ViewportInfo } from './history_tree_processor/view'
 import type {
   DOMBaseNode,
+  DOMState,
+
   SelectorMap,
 } from './views'
 import * as fs from 'node:fs'
@@ -11,7 +13,6 @@ import { Logger } from '../logger'
 import { timeExecutionAsync } from '../utils'
 import {
   DOMElementNode,
-  DOMState,
   DOMTextNode,
 } from './views'
 
@@ -40,7 +41,10 @@ export class DomService {
     viewportExpansion: number = 0,
   ): Promise<DOMState> {
     const [elementTree, selectorMap] = await this.buildDomTree(highlightElements, focusElement, viewportExpansion)
-    return new DOMState(elementTree, selectorMap)
+    return {
+      elementTree,
+      selectorMap,
+    }
   }
 
   @timeExecutionAsync('--get_cross_origin_iframes')

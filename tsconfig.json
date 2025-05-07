@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "ESNext",
     "rootDir": "./",
-    "module": "CommonJS",
+    "module": "ESNext",
     "moduleResolution": "node",
     "strict": true,
     "declaration": true,

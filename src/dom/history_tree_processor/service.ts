@@ -1,4 +1,5 @@
 import * as crypto from 'node:crypto'
+import { BrowserContext } from '@/browser/context'
 import { DOMElementNode } from '../views'
 import { DOMHistoryElement, HashedDomElement } from './view'
 
@@ -10,10 +11,10 @@ export class HistoryTreeProcessor {
    */
 
   static convertDomElementToHistoryElement(domElement: DOMElementNode): DOMHistoryElement {
-    const parentBranchPath = HistoryTreeProcessor._getParentBranchPath(domElement)
+    const parentBranchPath = HistoryTreeProcessor.getParentBranchPath(domElement)
 
     // TODO: import BrowserContext
-    const cssSelector = BrowserContext._enhancedCssSelectorForElement(domElement)
+    const cssSelector = BrowserContext.enhancedCssSelectorForElement(domElement)
 
     return new DOMHistoryElement({
       tagName: domElement.tagName,
@@ -31,12 +32,12 @@ export class HistoryTreeProcessor {
   }
 
   static findHistoryElementInTree(domHistoryElement: DOMHistoryElement, tree: DOMElementNode): DOMElementNode | undefined {
-    const hashedDomHistoryElement = HistoryTreeProcessor._hashDomHistoryElement(domHistoryElement)
+    const hashedDomHistoryElement = HistoryTreeProcessor.hashDomHistoryElement(domHistoryElement)
 
     function processNode(node: DOMElementNode): DOMElementNode | undefined {
       if (node.highlightIndex !== undefined) {
-        const hashedNode = HistoryTreeProcessor._hashDomElement(node)
-        if (HistoryTreeProcessor._compareHashedElements(hashedNode, hashedDomHistoryElement)) {
+        const hashedNode = HistoryTreeProcessor.hashDomElement(node)
+        if (HistoryTreeProcessor.compareHashedElements(hashedNode, hashedDomHistoryElement)) {
           return node
         }
       }
@@ -57,31 +58,31 @@ export class HistoryTreeProcessor {
   }
 
   static compareHistoryElementAndDomElement(domHistoryElement: DOMHistoryElement, domElement: DOMElementNode): boolean {
-    const hashedDomHistoryElement = HistoryTreeProcessor._hashDomHistoryElement(domHistoryElement)
-    const hashedDomElement = HistoryTreeProcessor._hashDomElement(domElement)
+    const hashedDomHistoryElement = HistoryTreeProcessor.hashDomHistoryElement(domHistoryElement)
+    const hashedDomElement = HistoryTreeProcessor.hashDomElement(domElement)
 
-    return HistoryTreeProcessor._compareHashedElements(hashedDomHistoryElement, hashedDomElement)
+    return HistoryTreeProcessor.compareHashedElements(hashedDomHistoryElement, hashedDomElement)
   }
 
-  static _hashDomHistoryElement(domHistoryElement: DOMHistoryElement): HashedDomElement {
-    const branchPathHash = HistoryTreeProcessor._parentBranchPathHash(domHistoryElement.entireParentBranchPath)
-    const attributesHash = HistoryTreeProcessor._attributesHash(domHistoryElement.attributes)
-    const xpathHash = HistoryTreeProcessor._xpathHash(domHistoryElement.xpath)
+  private static hashDomHistoryElement(domHistoryElement: DOMHistoryElement): HashedDomElement {
+    const branchPathHash = HistoryTreeProcessor.parentBranchPathHash(domHistoryElement.entireParentBranchPath)
+    const attributesHash = HistoryTreeProcessor.attributesHash(domHistoryElement.attributes)
+    const xpathHash = HistoryTreeProcessor.xpathHash(domHistoryElement.xpath)
 
     return new HashedDomElement(branchPathHash, attributesHash, xpathHash)
   }
 
-  static _hashDomElement(domElement: DOMElementNode): HashedDomElement {
-    const parentBranchPath = HistoryTreeProcessor._getParentBranchPath(domElement)
-    const branchPathHash = HistoryTreeProcessor._parentBranchPathHash(parentBranchPath)
-    const attributesHash = HistoryTreeProcessor._attributesHash(domElement.attributes)
-    const xpathHash = HistoryTreeProcessor._xpathHash(domElement.xpath)
+  static hashDomElement(domElement: DOMElementNode): HashedDomElement {
+    const parentBranchPath = HistoryTreeProcessor.getParentBranchPath(domElement)
+    const branchPathHash = HistoryTreeProcessor.parentBranchPathHash(parentBranchPath)
+    const attributesHash = HistoryTreeProcessor.attributesHash(domElement.attributes)
+    const xpathHash = HistoryTreeProcessor.xpathHash(domElement.xpath)
     // const textHash = HistoryTreeProcessor._textHash(domElement);
 
     return new HashedDomElement(branchPathHash, attributesHash, xpathHash)
   }
 
-  static _getParentBranchPath(domElement: DOMElementNode): string[] {
+  private static getParentBranchPath(domElement: DOMElementNode): string[] {
     const parents: DOMElementNode[] = []
     let currentElement: DOMElementNode = domElement
 
@@ -95,41 +96,32 @@ export class HistoryTreeProcessor {
     return parents.map(parent => parent.tagName)
   }
 
-  static _parentBranchPathHash(parentBranchPath: string[]): string {
+  private static parentBranchPathHash(parentBranchPath: string[]): string {
     const parentBranchPathString = parentBranchPath.join('/')
     return crypto.createHash('sha256').update(parentBranchPathString).digest('hex')
   }
 
-  static _attributesHash(attributes: Record<string, string>): string {
+  private static attributesHash(attributes: Record<string, string>): string {
     const attributesString = Object.entries(attributes)
       .map(([key, value]) => `${key}=${value}`)
       .join('')
     return crypto.createHash('sha256').update(attributesString).digest('hex')
   }
 
-  static _xpathHash(xpath: string): string {
+  private static xpathHash(xpath: string): string {
     return crypto.createHash('sha256').update(xpath).digest('hex')
   }
 
-  static _textHash(domElement: DOMElementNode): string {
+  private static textHash(domElement: DOMElementNode): string {
     const textString = domElement.getAllTextTillNextClickableElement(-1)
     return crypto.createHash('sha256').update(textString).digest('hex')
   }
 
-  static _compareHashedElements(a: HashedDomElement, b: HashedDomElement): boolean {
+  private static compareHashedElements(a: HashedDomElement, b: HashedDomElement): boolean {
     return (
       a.branchPathHash === b.branchPathHash
       && a.attributesHash === b.attributesHash
       && a.xpathHash === b.xpathHash
     )
-  }
-}
-
-// Placeholder for external dependency
-// In actual implementation, this should be imported from the correct module
-class BrowserContext {
-  static _enhancedCssSelectorForElement(domElement: DOMElementNode): string {
-    // This is a placeholder, actual implementation would come from the imported module
-    return ''
   }
 }

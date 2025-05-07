@@ -1,4 +1,4 @@
-(
+((
   args = {
     doHighlightElements: true,
     focusHighlightIndex: -1,
@@ -1381,4 +1381,4 @@
   return debugMode ?
     { rootId, map: DOM_HASH_MAP, perfMetrics: PERF_METRICS } :
     { rootId, map: DOM_HASH_MAP };
-};
+})();
