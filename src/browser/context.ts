@@ -305,7 +305,7 @@ export class BrowserContext {
     }
 
     // Bring page to front
-    logger.debug(`🫨  Bringing tab to front: ${currentPage}`)
+    logger.debug(`🫨  Bringing tab to front: ${currentPage.url()}`)
 
     await currentPage.bringToFront()
     await currentPage.waitForLoadState('load')
@@ -381,14 +381,17 @@ export class BrowserContext {
         // --- Method 1: visibilitychange event (unfortunately *all* tabs are always marked visible by playwright, usually does not fire) ---
         document.addEventListener('visibilitychange', () => {
           if (document.visibilityState === 'visible') {
+            // @ts-expect-error
             window[visibilityFuncName]({ source: 'visibilitychange' })
           }
         })
 
         // --- Method 2: focus/blur events, most reliable method for headful browsers ---
         window.addEventListener('focus', () => {
+          // @ts-expect-error
           window[visibilityFuncName]({ source: 'focus' })
         })
+        // @ts-expect-error
         return window[visibilityFuncName]
 
       // --- Method 3: pointermove events (may be fired by agent if we implement AI hover movements) ---
@@ -726,7 +729,7 @@ export class BrowserContext {
         // @ts-expect-error
         window.getEventListenersForNode = (node) => {
           const listeners = eventListenersMap.get(node) || []
-          return listeners.map(({ type, listenerPreview, options }) => ({
+          return listeners.map(({ type, listenerPreview, options }: any) => ({
             type,
             listenerPreview,
             options,
@@ -1145,7 +1148,7 @@ export class BrowserContext {
           if (element.getAttribute('name'))
             attrs.push(`name="${element.getAttribute('name')}"`)
           if (element.getAttribute('src')) {
-            const src = element.getAttribute('src')
+            const src = element.getAttribute('src')!
             attrs.push(`src="${src.substring(0, 50)}${src.length > 50 ? '...' : ''}"`)
           }
 
@@ -1164,7 +1167,7 @@ export class BrowserContext {
                 structure += `${indent}  [IFRAME: No access - likely cross-origin]\n`
               }
             }
-            catch (e) {
+            catch (e: any) {
               structure += `${indent}  [IFRAME: Access denied - ${e.message}]\n`
             }
           }
