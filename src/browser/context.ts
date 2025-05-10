@@ -950,7 +950,7 @@ export class BrowserContext {
    * @param url - URL string to check
    * @returns boolean indicating if the URL is allowed
    */
-  private isUrlAllowed(url: string): boolean {
+  isUrlAllowed(url: string): boolean {
     if (!this.config.allowedDomains) {
       return true
     }
