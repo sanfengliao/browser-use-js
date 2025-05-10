@@ -536,7 +536,7 @@ describe('tabManagement', () => {
 
       // Store the initial tab for reference
       const initialTab = browserContext.agentCurrentPage
-      const initialTabId = initialTab?.pageId || 0
+      const initialTabId = 0
 
       // Create second tab with OpenTabAction
       const openTabAction = { open_tab: { url: `${baseUrl}/page2` } }
@@ -550,7 +550,7 @@ describe('tabManagement', () => {
       const secondTab = browserContext.agentCurrentPage
       expect(browserContext.humanCurrentPage).toBe(browserContext.agentCurrentPage)
       expect(browserContext.agentCurrentPage?.url()).toContain(`${baseUrl}/page2`)
-      const secondTabId = secondTab?.pageId || 1
+      const secondTabId = 1
 
       // Create third tab with OpenTabAction
       const openTabAction2 = { open_tab: { url: `${baseUrl}/page3` } }
@@ -564,7 +564,7 @@ describe('tabManagement', () => {
       const thirdTab = browserContext.agentCurrentPage
       expect(browserContext.humanCurrentPage).toBe(browserContext.agentCurrentPage)
       expect(browserContext.agentCurrentPage?.url()).toContain(`${baseUrl}/page3`)
-      const thirdTabId = thirdTab?.pageId || 2
+      const thirdTabId = 2
 
       // Use SwitchTabAction to go back to the first tab (for the agent)
       const switchTabAction = { switch_tab: { pageId: initialTabId } }
