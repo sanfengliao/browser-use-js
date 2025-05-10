@@ -576,7 +576,7 @@ export class Controller {
                 allOptions.push(...formattedOptions)
               }
             }
-            catch (frameE) {
+            catch (frameE: any) {
               logger.debug(`Frame ${frameIndex} evaluation failed: ${frameE.toString()}`)
             }
 
@@ -600,7 +600,7 @@ export class Controller {
             }
           }
         }
-        catch (e) {
+        catch (e: any) {
           logger.error(`Failed to get dropdown options: ${e.toString()}`)
           const msg = `Error getting options: ${e.toString()}`
           logger.info(msg)
@@ -670,7 +670,7 @@ export class Controller {
                     availableOptions: Array.from(select.options).map(o => o.text.trim()),
                   }
                 }
-                catch (e) {
+                catch (e: any) {
                   return { error: e.toString(), found: false }
                 }
               }, domElement.xpath)
@@ -697,7 +697,7 @@ export class Controller {
                 }
               }
             }
-            catch (frameE) {
+            catch (frameE: any) {
               logger.error(`Frame ${frameIndex} attempt failed: ${frameE.toString()}`)
               logger.error(`Frame type: ${typeof frame}`)
               logger.error(`Frame URL: ${frame.url}`)
@@ -713,7 +713,7 @@ export class Controller {
             includeInMemory: true,
           }
         }
-        catch (e) {
+        catch (e: any) {
           const msg = `Selection failed: ${e.toString()}`
           logger.error(msg)
           return {
@@ -783,7 +783,7 @@ export class Controller {
               logger.warn(`Target element not found: ${targetSelector}`)
             }
           }
-          catch (e) {
+          catch (e: any) {
             logger.error(`Error finding elements: ${e.toString()}`)
           }
 
@@ -829,11 +829,11 @@ export class Controller {
               }
             }
           }
-          catch (e) {
+          catch (e: any) {
             logger.error(`Error getting element coordinates: ${e.toString()}`)
           }
 
-          return [sourceCoords, targetCoords]
+          return [sourceCoords, targetCoords] as any
         }
 
         async function executeDragOperation(
@@ -851,7 +851,7 @@ export class Controller {
               await page.mouse.move(sourceX, sourceY)
               logger.debug(`Moved to source position (${sourceX}, ${sourceY})`)
             }
-            catch (e) {
+            catch (e: any) {
               logger.error(`Failed to move to source position: ${e.toString()}`)
               return [false, `Failed to move to source position: ${e.toString()}`]
             }
@@ -883,7 +883,7 @@ export class Controller {
 
             return [true, 'Drag operation completed successfully']
           }
-          catch (e) {
+          catch (e: any) {
             return [false, `Error during drag operation: ${e.toString()}`]
           }
         }
@@ -999,7 +999,7 @@ export class Controller {
             includeInMemory: true,
           }
         }
-        catch (e) {
+        catch (e: any) {
           const errorMsg = `Failed to perform drag and drop: ${e.toString()}`
           logger.error(errorMsg)
           return {
@@ -1014,6 +1014,9 @@ export class Controller {
       name: 'get_sheet_contents',
       description: 'Google Sheets: Get the contents of the entire sheet',
       domains: ['sheets.google.com'],
+      requiredActionContext: {
+        browser: true,
+      },
       execute: async (params, { browser }) => {
         const page = await browser.getCurrentPage()
 
@@ -1072,6 +1075,9 @@ export class Controller {
       description: 'Google Sheets: Get the contents of a specific cell or range of cells',
       domains: ['sheets.google.com'],
       paramSchema: z.string(),
+      requiredActionContext: {
+        browser: true,
+      },
       execute: async (cellOrRange, { browser }) => {
         const page = await browser.getCurrentPage()
 
@@ -1152,7 +1158,7 @@ export class Controller {
         await page.evaluate((newContentsTsv) => {
           const clipboardData = new DataTransfer()
           clipboardData.setData('text/plain', `${newContentsTsv}`)
-          document.activeElement.dispatchEvent(new ClipboardEvent('paste', { clipboardData }))
+          document.activeElement?.dispatchEvent(new ClipboardEvent('paste', { clipboardData }))
         }, newContentsTsv)
 
         return {

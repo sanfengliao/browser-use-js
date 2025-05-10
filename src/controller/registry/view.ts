@@ -38,7 +38,7 @@ type ActionFunction<T extends ZodType = ZodType, C extends RequiredActionContext
 export interface RegisteredActionParams<T extends ZodType = ZodType, C extends RequiredActionContext = RequiredActionContext> {
   name: string
   description: string
-  execute: ActionFunction<T, C>
+  execute?: ActionFunction<T, C>
   paramSchema?: T
   domains?: string[] // e.g. ['*.google.com', 'www.bing.com', 'yahoo.*]
   pageFilter?: (page: Page) => boolean
@@ -59,7 +59,7 @@ export class RegisteredAction<T extends ZodType = ZodType, C extends RequiredAct
   constructor(params: RegisteredActionParams<T, C>) {
     this.name = params.name
     this.description = params.description
-    this.execute = params.execute
+    this.execute = params.execute || (() => 'do nothing')
     this.domains = params.domains
     this.pageFilter = params.pageFilter
     this.paramSchema = params.paramSchema || z.object({}) as any

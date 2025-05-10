@@ -1,6 +1,7 @@
 import type { ActionResult } from '@/agent/view'
 import type { BrowserContext } from '@/browser/context'
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
+import type { Page } from 'playwright'
 import type { ZodType } from 'zod'
 import type { RegisteredActionParams, RequiredActionContext } from './view'
 import { ProductTelemetry } from '@/telemetry/service'
@@ -173,7 +174,7 @@ export class Registry<C = Context> {
       }
 
       // Check page_filter if present
-      const domainIsAllowed = ActionRegistry.matchDomains(action.domains, page.url)
+      const domainIsAllowed = ActionRegistry.matchDomains(action.domains, page.url())
       const pageIsAllowed = ActionRegistry.matchPageFilter(action.pageFilter, page)
 
       // Include action if both filters match (or if either is not present)
@@ -204,7 +205,7 @@ export class Registry<C = Context> {
    * If page is provided, only include actions that are available for that page
    * based on their filter_func
    */
-  getPromptDescription(page?: any): string {
+  getPromptDescription(page?: Page): string {
     return this.registry.getPromptDescription({ page })
   }
 }
