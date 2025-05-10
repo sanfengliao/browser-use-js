@@ -450,7 +450,7 @@ export class BrowserContext {
    * 2. Recovers invalid tab references using valid ones
    * 3. Handles the case where both references are invalid
    */
-  private async reconcileTabState(): Promise<void> {
+  async reconcileTabState(): Promise<void> {
     const session = await this.getSession()
 
     const agentTabValid = (
