@@ -97,7 +97,7 @@ it('highlight elements', { timeout: 0 }, async () => {
       const action = '12'
       await context.removeHighlights()
 
-      const nodeElement = state.selectorMap.get(Number.parseInt(action))
+      const nodeElement = state.selectorMap[Number.parseInt(action)]
       await context.clickElementNode(nodeElement!)
     }
     catch (e) {

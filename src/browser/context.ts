@@ -1,5 +1,6 @@
 import type { SelectorMap } from '@/dom/views'
 import type { BrowserContextOptions, ElementHandle, FrameLocator, Geolocation, HTTPCredentials, Page, Browser as PlaywrightBrowser, BrowserContext as PlaywrightBrowserContext, Request, Response } from 'playwright'
+
 import type { Browser } from './browser'
 import type { BrowserState } from './view'
 import * as crypto from 'node:crypto'
@@ -374,21 +375,22 @@ export class BrowserContext {
       // Expose the function to the browser
       await page.exposeFunction(visibilityFuncName, onVisibilityChange)
 
-      // Set up multiple visibility detection methods in the browser
-      const jsCode = `() => {
-      // --- Method 1: visibilitychange event (unfortunately *all* tabs are always marked visible by playwright, usually does not fire) ---
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
+      // multiple reasons for doing it this way: stealth, uniqueness, sometimes pageload is cancelled and it runs twice, etc.
+      const res = await page.evaluate((visibilityFuncName) => {
+        // Set up multiple visibility detection methods in the browser
+        // --- Method 1: visibilitychange event (unfortunately *all* tabs are always marked visible by playwright, usually does not fire) ---
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') {
+            window[visibilityFuncName]({ source: 'visibilitychange' })
+          }
+        })
 
-          window.${visibilityFuncName}({ source: 'visibilitychange' });
-        }
-      });
-      
-      // --- Method 2: focus/blur events, most reliable method for headful browsers ---
-      window.addEventListener('focus', () => {
-        window.${visibilityFuncName}({ source: 'focus' });
-      });
-      
+        // --- Method 2: focus/blur events, most reliable method for headful browsers ---
+        window.addEventListener('focus', () => {
+          window[visibilityFuncName]({ source: 'focus' })
+        })
+        return window[visibilityFuncName]
+
       // --- Method 3: pointermove events (may be fired by agent if we implement AI hover movements) ---
       // Use a throttled handler to avoid excessive calls
       // let lastMove = 0;
@@ -399,10 +401,7 @@ export class BrowserContext {
       //    window.${visibilityFuncName}({ source: 'pointermove' });
       //  }
       // });
-    }`
-
-      // multiple reasons for doing it this way: stealth, uniqueness, sometimes pageload is cancelled and it runs twice, etc.
-      await page.evaluate(jsCode)
+      }, visibilityFuncName)
 
       // re-add listener to the page for when it navigates to a new url, because previous listeners will be cleared
       page.on('domcontentloaded', this.addTabForegroundingListener)
@@ -681,52 +680,60 @@ export class BrowserContext {
     }
     // Anti-detection scripts to inject into browser context
     const initScript = `
-  // Permissions
-  const originalQuery = window.navigator.permissions.query;
-  window.navigator.permissions.query = (parameters) => (
-    parameters.name === 'notifications' ?
-      Promise.resolve({ state: Notification.permission }) :
-      originalQuery(parameters)
-  );
-  (() => {
-    if (window._eventListenerTrackerInitialized) return;
-    window._eventListenerTrackerInitialized = true;
-  
-    const originalAddEventListener = EventTarget.prototype.addEventListener;
-    const eventListenersMap = new WeakMap();
-  
-    EventTarget.prototype.addEventListener = function(type, listener, options) {
-      if (typeof listener === "function") {
-        let listeners = eventListenersMap.get(this);
-        if (!listeners) {
-          listeners = [];
-          eventListenersMap.set(this, listeners);
-        }
-  
-        listeners.push({
-          type,
-          listener,
-          listenerPreview: listener.toString().slice(0, 100),
-          options
-        });
-      }
-  
-      return originalAddEventListener.call(this, type, listener, options);
-    };
-  
-    window.getEventListenersForNode = (node) => {
-      const listeners = eventListenersMap.get(node) || [];
-      return listeners.map(({ type, listenerPreview, options }) => ({
-        type,
-        listenerPreview,
-        options
-      }));
-    };
-  })();
+
+  ;
   `
 
     // Expose anti-detection scripts
-    await context.addInitScript(initScript)
+    await context.addInitScript(() => {
+      // Permissions
+      const originalQuery = window.navigator.permissions.query
+      // @ts-expect-error
+      window.navigator.permissions.query = parameters => (
+        parameters.name === 'notifications'
+          ? Promise.resolve({ state: Notification.permission })
+          : originalQuery(parameters)
+      );
+      (() => {
+        // @ts-expect-error
+        if (window._eventListenerTrackerInitialized)
+          return
+        // @ts-expect-error
+        window._eventListenerTrackerInitialized = true
+
+        const originalAddEventListener = EventTarget.prototype.addEventListener
+        const eventListenersMap = new WeakMap()
+
+        EventTarget.prototype.addEventListener = function (type, listener, options) {
+          if (typeof listener === 'function') {
+            let listeners = eventListenersMap.get(this)
+            if (!listeners) {
+              listeners = []
+              eventListenersMap.set(this, listeners)
+            }
+
+            listeners.push({
+              type,
+              listener,
+              listenerPreview: listener.toString().slice(0, 100),
+              options,
+            })
+          }
+
+          return originalAddEventListener.call(this, type, listener, options)
+        }
+
+        // @ts-expect-error
+        window.getEventListenersForNode = (node) => {
+          const listeners = eventListenersMap.get(node) || []
+          return listeners.map(({ type, listenerPreview, options }) => ({
+            type,
+            listenerPreview,
+            options,
+          }))
+        }
+      })()
+    })
     return context
   }
 
@@ -1092,7 +1099,7 @@ export class BrowserContext {
    * Execute JavaScript code on the agent's current page
    * @param script - JavaScript code to execute
    */
-  async executeJavaScript(script: string): Promise<any> {
+  async executeJavaScript(script: Parameters<Page['evaluate']>[0]) {
     const page = await this.getAgentCurrentPage()
     return await page.evaluate(script)
   }
@@ -1102,73 +1109,80 @@ export class BrowserContext {
    * @returns A string representation of the page structure
    */
   async getPageStructure(): Promise<string> {
-    const debugScript = `(() => {
-    function getPageStructure(element = document, depth = 0, maxDepth = 10) {
-      if (depth >= maxDepth) return '';
+    const page = await this.getAgentCurrentPage()
+    const structure = await page.evaluate(() => {
+      function getPageStructure(element: HTMLElement | Document = document, depth = 0, maxDepth = 10) {
+        if (depth >= maxDepth)
+          return ''
 
-      const indent = '  '.repeat(depth);
-      let structure = '';
+        const indent = '  '.repeat(depth)
+        let structure = ''
 
-      // Skip certain elements that clutter the output
-      const skipTags = new Set(['script', 'style', 'link', 'meta', 'noscript']);
+        // Skip certain elements that clutter the output
+        const skipTags = new Set(['script', 'style', 'link', 'meta', 'noscript'])
 
-      // Add current element info if it's not the document
-      if (element !== document) {
-        const tagName = element.tagName.toLowerCase();
+        // Add current element info if it's not the document
+        if (element instanceof HTMLElement) {
+          const tagName = element.tagName.toLowerCase()
 
-        // Skip uninteresting elements
-        if (skipTags.has(tagName)) return '';
+          // Skip uninteresting elements
+          if (skipTags.has(tagName))
+            return ''
 
-        const id = element.id ? \`#\${element.id}\` : '';
-        const classes = element.className && typeof element.className === 'string' ?
-          \`.\${element.className.split(' ').filter(c => c).join('.')}\` : '';
+          const id = element.id ? `#${element.id}` : ''
+          const classes = element.className && typeof element.className === 'string'
+            ? `.${element.className.split(' ').filter(c => c).join('.')}`
+            : ''
 
-        // Get additional useful attributes
-        const attrs = [];
-        if (element.getAttribute('role')) attrs.push(\`role="\${element.getAttribute('role')}"\`);
-        if (element.getAttribute('aria-label')) attrs.push(\`aria-label="\${element.getAttribute('aria-label')}"\`);
-        if (element.getAttribute('type')) attrs.push(\`type="\${element.getAttribute('type')}"\`);
-        if (element.getAttribute('name')) attrs.push(\`name="\${element.getAttribute('name')}"\`);
-        if (element.getAttribute('src')) {
-          const src = element.getAttribute('src');
-          attrs.push(\`src="\${src.substring(0, 50)}\${src.length > 50 ? '...' : ''}"\`);
-        }
+          // Get additional useful attributes
+          const attrs = []
+          if (element.getAttribute('role'))
+            attrs.push(`role="${element.getAttribute('role')}"`)
+          if (element.getAttribute('aria-label'))
+            attrs.push(`aria-label="${element.getAttribute('aria-label')}"`)
+          if (element.getAttribute('type'))
+            attrs.push(`type="${element.getAttribute('type')}"`)
+          if (element.getAttribute('name'))
+            attrs.push(`name="${element.getAttribute('name')}"`)
+          if (element.getAttribute('src')) {
+            const src = element.getAttribute('src')
+            attrs.push(`src="${src.substring(0, 50)}${src.length > 50 ? '...' : ''}"`)
+          }
 
-        // Add element info
-        structure += \`\${indent}\${tagName}\${id}\${classes}\${attrs.length ? ' [' + attrs.join(', ') + ']' : ''}\\n\`;
+          // Add element info
+          structure += `${indent}${tagName}${id}${classes}${attrs.length ? ` [${attrs.join(', ')}]` : ''}\n`
 
-        // Handle iframes specially
-        if (tagName === 'iframe') {
-          try {
-            const iframeDoc = element.contentDocument || element.contentWindow?.document;
-            if (iframeDoc) {
-              structure += \`\${indent}  [IFRAME CONTENT]:\\n\`;
-              structure += getPageStructure(iframeDoc, depth + 2, maxDepth);
-            } else {
-              structure += \`\${indent}  [IFRAME: No access - likely cross-origin]\\n\`;
+          // Handle iframes specially
+          if (tagName === 'iframe') {
+            try {
+              const iframeDoc = (element as HTMLIFrameElement).contentDocument || (element as HTMLIFrameElement).contentWindow?.document
+              if (iframeDoc) {
+                structure += `${indent}  [IFRAME CONTENT]:\n`
+                structure += getPageStructure(iframeDoc, depth + 2, maxDepth)
+              }
+              else {
+                structure += `${indent}  [IFRAME: No access - likely cross-origin]\n`
+              }
             }
-          } catch (e) {
-            structure += \`\${indent}  [IFRAME: Access denied - \${e.message}]\\n\`;
+            catch (e) {
+              structure += `${indent}  [IFRAME: Access denied - ${e.message}]\n`
+            }
           }
         }
-      }
 
-      // Get all child elements
-      const children = element.children || element.childNodes;
-      for (const child of children) {
-        if (child.nodeType === 1) { // Element nodes only
-          structure += getPageStructure(child, depth + 1, maxDepth);
+        // Get all child elements
+        const children = element.children || element.childNodes
+        for (const child of children) {
+          if (child.nodeType === 1) { // Element nodes only
+            structure += getPageStructure(child as HTMLElement, depth + 1, maxDepth)
+          }
         }
+
+        return structure
       }
 
-      return structure;
-    }
-
-    return getPageStructure();
-  })()`
-
-    const page = await this.getAgentCurrentPage()
-    const structure: string = await page.evaluate(debugScript)
+      return getPageStructure()
+    })
     return structure
   }
 
@@ -1347,23 +1361,24 @@ export class BrowserContext {
   async removeHighlights(): Promise<void> {
     try {
       const page = await this.getAgentCurrentPage()
-      await page.evaluate(`
-      try {
+      await page.evaluate(() => {
+        try {
         // Remove the highlight container and all its contents
-        const container = document.getElementById('playwright-highlight-container');
-        if (container) {
-          container.remove();
-        }
+          const container = document.getElementById('playwright-highlight-container')
+          if (container) {
+            container.remove()
+          }
 
-        // Remove highlight attributes from elements
-        const highlightedElements = document.querySelectorAll('[browser-user-highlight-id^="playwright-highlight-"]');
-        highlightedElements.forEach(el => {
-          el.removeAttribute('browser-user-highlight-id');
-        });
-      } catch (e) {
-        console.error('Failed to remove highlights:', e);
-      }
-    `)
+          // Remove highlight attributes from elements
+          const highlightedElements = document.querySelectorAll('[browser-user-highlight-id^="playwright-highlight-"]')
+          highlightedElements.forEach((el) => {
+            el.removeAttribute('browser-user-highlight-id')
+          })
+        }
+        catch (e) {
+          console.error('Failed to remove highlights:', e)
+        }
+      })
     }
     catch (e) {
       logger.debug(`⚠ Failed to remove highlights (this is usually ok): ${e}`)
@@ -1779,7 +1794,11 @@ export class BrowserContext {
       const disabled = disabledHandle ? await disabledHandle.jsonValue() : false
 
       if ((await isContentEditable.jsonValue() || tagName === 'input') && !(readonly || disabled)) {
-        await elementHandle.evaluate('el => {el.textContent = ""; el.value = "";}')
+        await elementHandle.evaluate((el) => {
+          el.textContent = ''
+          // @ts-expect-error
+          el.value = ''
+        })
         await elementHandle.type(text, { delay: 5 })
       }
       else {
@@ -1854,7 +1873,10 @@ export class BrowserContext {
           throw e
         }
         try {
-          return await performClick(() => page.evaluate('(el) => el.click()', elementHandle))
+          return performClick(() => page.evaluate((el) => {
+            // @ts-expect-error
+            el.click()
+          }, elementHandle))
         }
         catch (e) {
           if (e instanceof URLNotAllowedError) {
@@ -2007,7 +2029,7 @@ export class BrowserContext {
   async getSelectorMap(): Promise<SelectorMap> {
     const session = await this.getSession()
     if (!session.cachedState) {
-      return new Map()
+      return {}
     }
     return session.cachedState.selectorMap
   }
@@ -2019,10 +2041,10 @@ export class BrowserContext {
    */
   async getElementsByIndex(index: number): Promise<ElementHandle | null> {
     const selectorMap = await this.getSelectorMap()
-    if (!selectorMap.has(index)) {
+    if (!selectorMap[index]) {
       return null
     }
-    const elementHandle = await this.getLocateElement(selectorMap.get(index)!)
+    const elementHandle = await this.getLocateElement(selectorMap[index]!)
     return elementHandle
   }
 
@@ -2033,7 +2055,7 @@ export class BrowserContext {
    */
   async getDomElementByIndex(index: number): Promise<DOMElementNode> {
     const selectorMap = await this.getSelectorMap()
-    return selectorMap.get(index)!
+    return selectorMap[index]!
   }
 
   /**
@@ -2116,9 +2138,13 @@ export class BrowserContext {
    * @returns Tuple containing pixels above and below the viewport
    */
   async getScrollInfo(page: Page): Promise<[number, number]> {
-    const scrollY = await page.evaluate<number>('window.scrollY')
-    const viewportHeight = await page.evaluate<number>('window.innerHeight')
-    const totalHeight = await page.evaluate<number>('document.documentElement.scrollHeight')
+    const scrollY = await page.evaluate(() => {
+      return window.scrollY
+    })
+    const viewportHeight = await page.evaluate(() => {
+      return window.innerHeight
+    })
+    const totalHeight = await page.evaluate(() => document.documentElement.scrollHeight)
 
     const pixelsAbove = scrollY
     const pixelsBelow = totalHeight - (scrollY + viewportHeight)

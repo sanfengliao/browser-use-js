@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import { URL } from 'node:url'
 import { Logger } from '../logger'
 import { timeExecutionAsync } from '../utils'
+import { highlightElement } from './buildDomTree.js'
 import {
   DOMElementNode,
   DOMTextNode,
@@ -21,16 +22,10 @@ const logger = Logger.getLogger('browser_use.dom')
 export class DomService {
   private page: Page
   private xpathCache: Record<string, any>
-  private jsCode: string
 
   constructor(page: Page) {
     this.page = page
     this.xpathCache = {}
-
-    // Read JavaScript code from file
-    // Note: In TypeScript we need to handle this differently than Python's resource loading
-    const domJsPath = path.resolve(__dirname, 'buildDomTree.js')
-    this.jsCode = fs.readFileSync(domJsPath, 'utf-8')
   }
 
   // region - Clickable elements
@@ -50,7 +45,7 @@ export class DomService {
   @timeExecutionAsync('--get_cross_origin_iframes')
   async getCrossOriginIframes(): Promise<string[]> {
     // invisible cross-origin iframes are used for ads and tracking, dont open those
-    const hiddenFrameUrls: string[] = await this.page.locator('iframe').filter({ visible: false }).evaluateAll('e => e.map(e => e.src)')
+    const hiddenFrameUrls: string[] = await this.page.locator('iframe').filter({ visible: false }).evaluateAll((e: HTMLIFrameElement[]) => e.map(e => e.src))
 
     const isAdUrl = (url: string): boolean => {
       const parsedUrl = new URL(url)
@@ -62,8 +57,8 @@ export class DomService {
     return this.page.frames()
       .filter((frame) => {
         try {
-          const parsedFrameUrl = new URL(frame.url)
-          const parsedPageUrl = new URL(this.page.url)
+          const parsedFrameUrl = new URL(frame.url())
+          const parsedPageUrl = new URL(this.page.url())
 
           return parsedFrameUrl.hostname // exclude data:urls and about:blank
             && parsedFrameUrl.hostname !== parsedPageUrl.hostname // exclude same-origin iframes
@@ -100,7 +95,7 @@ export class DomService {
             parent: undefined,
           },
         ),
-        new Map(),
+        {},
       ]
     }
 
@@ -116,13 +111,13 @@ export class DomService {
     }
 
     try {
-      const evalPage: Record<string, any> = await this.page.evaluate(this.jsCode, args)
+      const evalPage = await this.page.evaluate(highlightElement, args)
 
       // Only log performance metrics in debug mode
       if (debugMode && 'perfMetrics' in evalPage) {
         logger.debug(
           'DOM Tree Building Performance Metrics for: %s\n%s',
-          this.page.url,
+          this.page.url(),
           JSON.stringify(evalPage.perfMetrics, null, 2),
         )
       }
@@ -142,7 +137,7 @@ export class DomService {
     const jsNodeMap = evalPage.map
     const jsRootId = evalPage.rootId
 
-    const selectorMap: SelectorMap = new Map()
+    const selectorMap: SelectorMap = {}
     const nodeMap: Record<string, DOMBaseNode> = {}
 
     for (const [id, nodeData] of Object.entries<any>(jsNodeMap)) {
@@ -154,7 +149,7 @@ export class DomService {
       nodeMap[id] = node
 
       if (node instanceof DOMElementNode && node.highlightIndex !== undefined) {
-        selectorMap.set(node.highlightIndex, node)
+        selectorMap[node.highlightIndex] = node
       }
 
       // NOTE: We know that we are building the tree bottom up

@@ -4,7 +4,7 @@
     "rootDir": "./",
     "module": "ESNext",
     "moduleResolution": "node",
-    "strict": true,
+
     "declaration": true,
     "outDir": "./dist",
     "allowSyntheticDefaultImports": true,

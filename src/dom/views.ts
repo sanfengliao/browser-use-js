@@ -351,7 +351,7 @@ class DOMElementNode extends DOMBaseNode {
   }
 }
 
-type SelectorMap = Map<number, DOMElementNode>
+type SelectorMap = Record<number, DOMElementNode>
 
 interface DOMState {
   elementTree: DOMElementNode
