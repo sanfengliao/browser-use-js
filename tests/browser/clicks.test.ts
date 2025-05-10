@@ -36,7 +36,7 @@ function createReadlineInterface() {
 }
 
 // Note: This is more of an interactive test and may need to be manually run
-it('highlight elements', { timeout: 0 }, async () => {
+it('highlight elements', async () => {
   const browser = new Browser(
     new BrowserConfig({ headless: false, disableSecurity: true }),
   )

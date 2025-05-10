@@ -142,7 +142,7 @@ export class Browser {
     const contextConfig = new BrowserContextConfig(config)
     const context = new BrowserContext({
       browser: this,
-      config: { ...browserConfig, ...contextConfig },
+      config: new BrowserContextConfig({ ...browserConfig, ...contextConfig }),
     })
     await context.initializeSession()
     return context
@@ -178,7 +178,7 @@ export class Browser {
     const browserClass = playwright[this.config.browserClass]
 
     // Connect to the browser via CDP
-    const browser = await chromium.connectOverCDP(this.config.cdpUrl, {
+    const browser = await browserClass.connectOverCDP(this.config.cdpUrl, {
       timeout: 20000, // 20 second timeout for connection
     })
 
@@ -457,7 +457,7 @@ export class Browser {
       }
     }
     catch (e: any) {
-      if (!e.message.include('OpenAI error')) {
+      if (!e.message.includes('OpenAI error')) {
         logger.debug(`Failed to close browser properly: ${e}`)
       }
     }

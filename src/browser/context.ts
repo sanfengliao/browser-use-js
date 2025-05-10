@@ -244,7 +244,7 @@ export class BrowserContext {
     this.pageEventHandler = undefined
 
     // auto-attach the foregrounding-detection listener to all new pages opened
-    context.addListener('page', this.addTabForegroundingListener)
+    context.on('page', this.addTabForegroundingListener)
     // Get or create a page to use
     const pages = context.pages()
     this.session = {
