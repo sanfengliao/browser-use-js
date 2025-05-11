@@ -2,8 +2,8 @@ import type { ActionResult } from '@/agent/view'
 import type { BrowserContext } from '@/browser/context'
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { Page } from 'playwright'
-import type { ZodType } from 'zod'
-import type { RegisteredActionParams, RequiredActionContext } from './registry/view'
+import type { Primitive, ZodType } from 'zod'
+import type { ActionModel, ExecuteActions, RegisteredActionParams, RequiredActionContext } from './registry/view'
 import type { Position } from './view'
 import { Logger } from '@/logger'
 import { PromptTemplate } from '@langchain/core/prompts'
@@ -1188,7 +1188,7 @@ export class Controller {
       availableFilePaths,
       context,
     }: {
-      actions: ExecuteActions
+      actions: ActionModel | ExecuteActions
       browserContext: BrowserContext
       pageExtractionLlm?: BaseChatModel
       sensitiveData?: Record<string, string>
@@ -1227,10 +1227,4 @@ export class Controller {
 
     return {}
   }
-}
-
-export type ActionParameters = any
-
-export interface ExecuteActions {
-  [actionName: string]: ActionParameters
 }

@@ -23,7 +23,7 @@ export class TabInfo implements ITabInfo {
     this.parentPageId = data.parentPageId
   }
 
-  toJSON(): ITabInfo {
+  toJSON() {
     return {
       pageId: this.pageId,
       url: this.url,
@@ -67,7 +67,7 @@ export class BrowserStateHistory {
     this.screenshot = data.screenshot
   }
 
-  toDict(): Record<string, any> {
+  toDict() {
     return {
       tabs: this.tabs.map(tab => tab.toJSON()),
       screenshot: this.screenshot,

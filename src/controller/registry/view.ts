@@ -4,7 +4,7 @@ import type { BrowserContext } from '@/browser/context'
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { Page } from 'playwright'
 
-import type { ZodType } from 'zod'
+import type { Primitive, ZodType } from 'zod'
 import { z } from 'zod'
 
 import { zodToJsonSchema } from 'zod-to-json-schema'
@@ -43,6 +43,51 @@ export interface RegisteredActionParams<T extends ZodType = ZodType, C extends R
   domains?: string[] // e.g. ['*.google.com', 'www.bing.com', 'yahoo.*]
   pageFilter?: (page: Page) => boolean
   requiredActionContext?: C
+}
+
+export type ActionParameters = Primitive | Record<string, any>
+
+export interface ExecuteActions {
+  [actionName: string]: ActionParameters
+}
+/**
+ * Base model for dynamically created action models
+ */
+export class ActionModel {
+  [actionName: string]: ActionParameters
+  /**
+   * Get the index of the action
+   * @returns The index of the action or undefined if not found
+   */
+  getIndex(): number | undefined {
+    // {'clicked_element': {'index':5}}
+    const params = Object.values(this)
+    if (!params.length) {
+      return undefined
+    }
+
+    for (const param of params) {
+      if (param !== null && typeof param === 'object' && 'index' in param) {
+        return param.index
+      }
+    }
+    return undefined
+  }
+
+  /**
+   * Overwrite the index of the action
+   * @param index The new index value
+   */
+  setIndex(index: number): void {
+    // Get the action name and params
+    const actionName = Object.keys(this)[0]
+    const actionParams = (this as any)[actionName]
+
+    // Update the index directly on the model
+    if (actionParams && typeof actionParams === 'object' && 'index' in actionParams) {
+      actionParams.index = index
+    }
+  }
 }
 
 export class RegisteredAction<T extends ZodType = ZodType, C extends RequiredActionContext = RequiredActionContext> {

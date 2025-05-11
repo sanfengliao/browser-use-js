@@ -2,6 +2,7 @@ import type { Server } from 'node:http'
 import { createServer } from 'node:http'
 import { Browser, BrowserConfig } from '@/browser/browser'
 import { BrowserContext } from '@/browser/context'
+import { ActionModel } from '@/controller/registry/view'
 import { Controller } from '@/controller/service'
 import { Logger } from '@/logger'
 import * as dotenv from 'dotenv'
@@ -523,6 +524,29 @@ describe('tabManagement', () => {
     const controller = new Controller()
 
     try {
+      class OpenTabActionModel extends ActionModel {
+        constructor(public open_tab: { url: string }) {
+          super()
+        }
+      }
+
+      class SwitchTabActionModel extends ActionModel {
+        constructor(public switch_tab: { pageId: number }) {
+          super()
+        }
+      }
+
+      class GoToUrlTabActionModel extends ActionModel {
+        constructor(public go_to_url: { url: string }) {
+          super()
+        }
+      }
+
+      class CloseTabActionModel extends ActionModel {
+        constructor(public close_tab: { pageId: number }) {
+          super()
+        }
+      }
       // Ensure we start with at least one tab
       await ensureSynchronizedState(browserContext, baseUrl)
 
@@ -539,9 +563,9 @@ describe('tabManagement', () => {
       const initialTabId = 0
 
       // Create second tab with OpenTabAction
-      const openTabAction = { open_tab: { url: `${baseUrl}/page2` } }
+
       await controller.act({
-        actions: openTabAction,
+        actions: new OpenTabActionModel({ url: `${baseUrl}/page2` }),
         browserContext,
       })
       await new Promise(r => setTimeout(r, 1000)) // Wait for the tab to fully initialize
@@ -553,9 +577,9 @@ describe('tabManagement', () => {
       const secondTabId = 1
 
       // Create third tab with OpenTabAction
-      const openTabAction2 = { open_tab: { url: `${baseUrl}/page3` } }
+
       await controller.act({
-        actions: openTabAction2,
+        actions: new OpenTabActionModel({ url: `${baseUrl}/page3` }),
         browserContext,
       })
       await new Promise(r => setTimeout(r, 1000)) // Wait for the tab to fully initialize
@@ -567,9 +591,9 @@ describe('tabManagement', () => {
       const thirdTabId = 2
 
       // Use SwitchTabAction to go back to the first tab (for the agent)
-      const switchTabAction = { switch_tab: { pageId: initialTabId } }
+
       await controller.act({
-        actions: switchTabAction,
+        actions: new SwitchTabActionModel({ pageId: initialTabId }),
         browserContext,
       })
       await new Promise(r => setTimeout(r, 500))
@@ -591,9 +615,8 @@ describe('tabManagement', () => {
       expect(browserContext.agentCurrentPage?.url()).toContain(`${baseUrl}/page1`)
 
       // Use GoToUrlAction to navigate the agent's tab to a new URL
-      const gotoAction = { go_to_url: { url: `${baseUrl}/page4` } }
       await controller.act({
-        actions: gotoAction,
+        actions: new GoToUrlTabActionModel({ url: `${baseUrl}/page4` }),
         browserContext,
       })
       await new Promise(r => setTimeout(r, 500))
@@ -607,9 +630,11 @@ describe('tabManagement', () => {
       expect(browserContext.humanCurrentPage?.url()).toContain(`${baseUrl}/page2`)
 
       // Use CloseTabAction to close the third tab
-      const closeTabAction = { close_tab: { pageId: thirdTabId } }
+
       await controller.act({
-        actions: closeTabAction,
+        actions: new CloseTabActionModel({
+          pageId: thirdTabId,
+        }),
         browserContext,
       })
       await new Promise(r => setTimeout(r, 1000)) // Extended wait to ensure tab cleanup
