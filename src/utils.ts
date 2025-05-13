@@ -1,7 +1,7 @@
 import type { AnyFunction } from './type'
 import { Logger } from './logger' // 假设你有一个日志模块
 
-const logger = Logger.getLogger('utils')
+const logger = Logger.getLogger(import.meta.filename)
 
 type MethodDecorator<T extends AnyFunction> = (target: T, context: ClassMethodDecoratorContext) => T
 

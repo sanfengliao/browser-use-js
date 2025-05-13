@@ -12,7 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 dotenv.config()
 
 // Set up test logging
-const logger = Logger.getLogger('test.browser.tab.management')
+const logger = Logger.getLogger(import.meta.filename)
 
 describe('tabManagement', () => {
   /**
@@ -85,7 +85,7 @@ describe('tabManagement', () => {
   async function executeAction(controller: Controller, browserContext: BrowserContext, actions: Record<string, any>) {
     // Execute the action
     const result = await controller.act({
-      actions,
+      action: actions,
       browserContext,
     })
 
@@ -130,7 +130,7 @@ describe('tabManagement', () => {
       `BEFORE: agent_tab=${browserContext.agentCurrentPage?.url || 'None'}, `
       + `human_current_page=${browserContext.humanCurrentPage?.url || 'None'}`,
     )
-    logger.debug(`Simulating user changing to -> ${page.url}`)
+    logger.debug(`Simulating user changing to -> ${page.url()}`)
 
     // First bring the page to front - this is the physical action a user would take
     await page.bringToFront()
@@ -144,8 +144,8 @@ describe('tabManagement', () => {
     await new Promise(r => setTimeout(r, 500))
 
     logger.debug(
-      `AFTER: agent_tab URL=${browserContext.agentCurrentPage?.url || 'None'}, `
-      + `human_current_page URL=${browserContext.humanCurrentPage?.url || 'None'}`,
+      `AFTER: agent_tab URL=${browserContext.agentCurrentPage?.url() || 'None'}, `
+      + `human_current_page URL=${browserContext.humanCurrentPage?.url() || 'None'}`,
     )
   }
 
@@ -565,7 +565,7 @@ describe('tabManagement', () => {
       // Create second tab with OpenTabAction
 
       await controller.act({
-        actions: new OpenTabActionModel({ url: `${baseUrl}/page2` }),
+        action: new OpenTabActionModel({ url: `${baseUrl}/page2` }),
         browserContext,
       })
       await new Promise(r => setTimeout(r, 1000)) // Wait for the tab to fully initialize
@@ -579,7 +579,7 @@ describe('tabManagement', () => {
       // Create third tab with OpenTabAction
 
       await controller.act({
-        actions: new OpenTabActionModel({ url: `${baseUrl}/page3` }),
+        action: new OpenTabActionModel({ url: `${baseUrl}/page3` }),
         browserContext,
       })
       await new Promise(r => setTimeout(r, 1000)) // Wait for the tab to fully initialize
@@ -593,7 +593,7 @@ describe('tabManagement', () => {
       // Use SwitchTabAction to go back to the first tab (for the agent)
 
       await controller.act({
-        actions: new SwitchTabActionModel({ pageId: initialTabId }),
+        action: new SwitchTabActionModel({ pageId: initialTabId }),
         browserContext,
       })
       await new Promise(r => setTimeout(r, 500))
@@ -616,7 +616,7 @@ describe('tabManagement', () => {
 
       // Use GoToUrlAction to navigate the agent's tab to a new URL
       await controller.act({
-        actions: new GoToUrlTabActionModel({ url: `${baseUrl}/page4` }),
+        action: new GoToUrlTabActionModel({ url: `${baseUrl}/page4` }),
         browserContext,
       })
       await new Promise(r => setTimeout(r, 500))
@@ -632,7 +632,7 @@ describe('tabManagement', () => {
       // Use CloseTabAction to close the third tab
 
       await controller.act({
-        actions: new CloseTabActionModel({
+        action: new CloseTabActionModel({
           pageId: thirdTabId,
         }),
         browserContext,
@@ -646,7 +646,7 @@ describe('tabManagement', () => {
       // Close the second tab, which is the human's current tab
       const closeTabAction2 = { close_tab: { pageId: secondTabId } }
       await controller.act({
-        actions: closeTabAction2,
+        action: closeTabAction2,
         browserContext,
       })
       await new Promise(r => setTimeout(r, 1000)) // Extended wait to ensure tab cleanup

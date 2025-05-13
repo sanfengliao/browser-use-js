@@ -1,4 +1,4 @@
-import type { ActionResult } from '@/agent/view'
+import type { ActionResultData } from '@/agent/view'
 import type { BrowserContext } from '@/browser/context'
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { Page } from 'playwright'
@@ -44,11 +44,14 @@ export class Registry<C = Context> {
   registerAction<T extends ZodType, C extends RequiredActionContext>(
     params: RegisteredActionParams<T, C>,
   ) {
+    if (this.excludeActions.includes(params.name)) {
+      return
+    }
     this.registry.actions[params.name] = new RegisteredAction<T, any>(params) as any
   }
 
   @timeExecutionAsync('--execute_action')
-  async executeAction(params: ExecuteActionParams<C>): Promise<ActionResult | string> {
+  async executeAction(params: ExecuteActionParams<C>): Promise<ActionResultData | string> {
     /** Execute a registered action */
     const {
       actionName,

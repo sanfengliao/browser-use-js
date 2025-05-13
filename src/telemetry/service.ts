@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from 'uuid'
 
 config()
 
-const logger = Logger.getLogger('telemetry.service')
+const logger = Logger.getLogger(import.meta.filename)
 
 const POSTHOG_EVENT_SETTINGS = {
   process_person_profile: true,

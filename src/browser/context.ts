@@ -14,7 +14,7 @@ import { v4 as uuidV4 } from 'uuid'
 import { Logger } from '../logger'
 import { BrowserError, TabInfo, URLNotAllowedError } from './view'
 
-const logger = Logger.getLogger('browser.context')
+const logger = Logger.getLogger(import.meta.url)
 
 const BROWSER_NAVBAR_HEIGHT = {
   windows: 85,
@@ -208,7 +208,7 @@ export class BrowserContext {
           })
         }
         catch (e) {
-          logger.debug(`Failed to stop tracing: #{e}`)
+          logger.debug(`Failed to stop tracing: ${e}`)
         }
       }
 
@@ -223,7 +223,7 @@ export class BrowserContext {
       }
     }
     catch (e) {
-      logger.error('Error closing browser context', e)
+      logger.error(`Error closing browser context ${e}`)
     }
     finally {
       this.humanCurrentPage = undefined
@@ -284,12 +284,12 @@ export class BrowserContext {
         && !pages[0].url().startsWith('chrome-extension://') // skip hidden extension background pages
       ) {
         currentPage = pages[0]
-        logger.debug('🔍 Using existing page: ', currentPage.url())
+        logger.debug(`🔍 Using existing page: ${currentPage.url()}`)
       }
       else {
         currentPage = await context.newPage()
         await currentPage.goto('about:blank')
-        logger.debug('🆕 Created new page: ', currentPage.url())
+        logger.debug(`🆕 Created new page: ${currentPage.url()}`)
       }
 
       // Get target ID for the active page

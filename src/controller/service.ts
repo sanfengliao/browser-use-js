@@ -1,21 +1,23 @@
-import type { ActionResult } from '@/agent/view'
+import type { ActionResultData } from '@/agent/view'
 import type { BrowserContext } from '@/browser/context'
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { Page } from 'playwright'
-import type { Primitive, ZodType } from 'zod'
+import type { ZodType } from 'zod'
 import type { ActionModel, ExecuteActions, RegisteredActionParams, RequiredActionContext } from './registry/view'
 import type { Position } from './view'
+import { ActionResult } from '@/agent/view'
 import { Logger } from '@/logger'
 import { PromptTemplate } from '@langchain/core/prompts'
 import TurndownService from 'turndown'
 import { z } from 'zod'
 import { Registry } from './registry/service'
 
-const logger = Logger.getLogger('controller.service')
+const logger = Logger.getLogger(import.meta.url)
 
 export class Controller {
   registry: Registry
-  constructor(excludeActions = []) {
+  constructor(params: { excludeActions?: string[] } = {}) {
+    const { excludeActions = [] } = params
     this.registry = new Registry(excludeActions)
 
     this.registry.registerAction({
@@ -23,13 +25,14 @@ export class Controller {
       description: 'Complete task - with return text and if the task is finished (success=True) or not yet  completely finished (success=False), because last step is reached',
       paramSchema: z.object({
         success: z.boolean(),
-        data: z.any(),
+        data: z.any().optional(),
+        text: z.string().optional(),
       }),
       execute: (params) => {
         return {
           isDone: true,
           success: params.success,
-          extractedContent: JSON.stringify(params.data),
+          extractedContent: params.data ? JSON.stringify(params.data) : params.text,
         }
       },
     })
@@ -99,8 +102,10 @@ export class Controller {
     this.registry.registerAction({
       name: 'wait',
       description: 'Wait for x seconds default 3',
-      paramSchema: z.number().default(3),
-      execute: async (seconds = 3) => {
+      paramSchema: z.object({
+        seconds: z.number().default(3),
+      }),
+      execute: async ({ seconds }) => {
         const msg = `🕒  Waiting for ${seconds} seconds`
         logger.info(msg)
         await new Promise(resolve => setTimeout(resolve, seconds * 1000))
@@ -530,11 +535,13 @@ export class Controller {
     this.registry.registerAction({
       name: 'get_dropdown_options',
       description: 'Get all options from a native dropdown',
-      paramSchema: z.number(),
+      paramSchema: z.object({
+        index: z.number(),
+      }),
       requiredActionContext: {
         browser: true,
       },
-      execute: async (index, { browser }) => {
+      execute: async ({ index }, { browser }) => {
         const page = await browser.getCurrentPage()
         const selectorMap = await browser.getSelectorMap()
         const domElement = selectorMap[index]
@@ -700,7 +707,7 @@ export class Controller {
             catch (frameE: any) {
               logger.error(`Frame ${frameIndex} attempt failed: ${frameE.toString()}`)
               logger.error(`Frame type: ${typeof frame}`)
-              logger.error(`Frame URL: ${frame.url}`)
+              logger.error(`Frame URL: ${frame.url()}`)
             }
 
             frameIndex++
@@ -1005,6 +1012,7 @@ export class Controller {
           return {
             error: errorMsg,
             includeInMemory: true,
+
           }
         }
       },
@@ -1181,14 +1189,14 @@ export class Controller {
 
   async act(
     {
-      actions,
+      action,
       browserContext,
       pageExtractionLlm,
       sensitiveData,
       availableFilePaths,
       context,
     }: {
-      actions: ActionModel | ExecuteActions
+      action: ActionModel | ExecuteActions
       browserContext: BrowserContext
       pageExtractionLlm?: BaseChatModel
       sensitiveData?: Record<string, string>
@@ -1196,7 +1204,7 @@ export class Controller {
       context?: any
     },
   ): Promise<ActionResult> {
-    for (const [actionName, params] of Object.entries(actions)) {
+    for (const [actionName, params] of Object.entries(action)) {
       if (params != null && params !== undefined) {
         const result = await this.registry.executeAction(
           {
@@ -1211,13 +1219,15 @@ export class Controller {
         )
 
         if (typeof result === 'string') {
-          return { extractedContent: result }
+          return new ActionResult({
+            extractedContent: result,
+          })
         }
         else if (result && typeof result === 'object') {
-          return result as ActionResult
+          return new ActionResult(result)
         }
         else if (result === undefined || result === null) {
-          return {}
+          return new ActionResult()
         }
         else {
           throw new Error(`Invalid action result type: ${typeof result} of ${result}`)
@@ -1225,6 +1235,6 @@ export class Controller {
       }
     }
 
-    return {}
+    return new ActionResult()
   }
 }

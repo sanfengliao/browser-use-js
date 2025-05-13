@@ -1,4 +1,4 @@
-import type { ActionResult } from '@/agent/view'
+import type { ActionResultData } from '@/agent/view'
 import type { BrowserContext } from '@/browser/context'
 
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
@@ -33,7 +33,7 @@ type GetActionContext<T extends RequiredActionContext> = 0 extends (1 & T) ? Par
 
 type B = GetActionContext<RequiredActionContext>
 
-type ActionFunction<T extends ZodType = ZodType, C extends RequiredActionContext = any> = (params: z.infer<T>, ext: GetActionContext<C>) => string | Promise<string> | ActionResult | Promise<ActionResult>
+type ActionFunction<T extends ZodType = ZodType, C extends RequiredActionContext = any> = (params: z.infer<T>, ext: GetActionContext<C>) => string | Promise<string> | ActionResultData | Promise<ActionResultData>
 
 export interface RegisteredActionParams<T extends ZodType = ZodType, C extends RequiredActionContext = RequiredActionContext> {
   name: string
@@ -45,7 +45,7 @@ export interface RegisteredActionParams<T extends ZodType = ZodType, C extends R
   requiredActionContext?: C
 }
 
-export type ActionParameters = Primitive | Record<string, any>
+export type ActionParameters = any
 
 export interface ExecuteActions {
   [actionName: string]: ActionParameters

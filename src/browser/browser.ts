@@ -11,7 +11,7 @@ import { CHROME_ARGS, CHROME_DEBUG_PORT, CHROME_DETERMINISTIC_RENDERING_ARGS, CH
 import { BrowserContext, BrowserContextConfig } from './context'
 import { getScreenResolution, getWindowAdjustments } from './utils/screen_resolution'
 
-const logger = Logger.getLogger('browser.browser')
+const logger = Logger.getLogger(import.meta.filename)
 
 const IN_DOCKER = true
 
@@ -415,7 +415,7 @@ export class Browser {
       return await this.setupBuiltinBrowser()
     }
     catch (error) {
-      logger.error('Failed to initialize Playwright browser', error)
+      logger.error(`Failed to initialize Playwright browser, ${error}`)
       throw error
     }
   }
@@ -448,7 +448,7 @@ export class Browser {
       if (this.chromeSubprocessId) {
         treeKill(this.chromeSubprocessId, 'SIGKILL', (err) => {
           if (err) {
-            logger.error('Failed to kill Chrome subprocess', err)
+            logger.error(`Failed to kill Chrome subprocess ${err}`)
           }
           else {
             logger.info('Killed Chrome subprocess')

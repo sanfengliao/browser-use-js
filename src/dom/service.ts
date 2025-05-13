@@ -17,7 +17,7 @@ import {
   DOMTextNode,
 } from './views'
 
-const logger = Logger.getLogger('browser_use.dom')
+const logger = Logger.getLogger(import.meta.filename)
 
 export class DomService {
   private page: Page

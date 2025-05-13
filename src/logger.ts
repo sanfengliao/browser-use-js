@@ -93,30 +93,6 @@ export function setupLogging(): void {
   // Save to global
   setGlobalLogger(rootLogger)
 
-  // Silence third-party library logs
-  const silenceThirdPartyLoggers = [
-    'WDM',
-    'httpx',
-    'selenium',
-    'playwright',
-    'urllib3',
-    'asyncio',
-    'langchain',
-    'openai',
-    'httpcore',
-    'charset_normalizer',
-    'anthropic._base_client',
-    'PIL.PngImagePlugin',
-    'trafilatura.htmlprocessing',
-    'trafilatura',
-  ]
-
-  silenceThirdPartyLoggers.forEach((name) => {
-    // In Winston, we "silence" by creating loggers with specific levels
-    // But since Node.js logging system is different from Python, we just simulate this behavior
-    Logger.silent(name)
-  })
-
   initialized = true
 }
 
@@ -155,7 +131,8 @@ export class Logger {
    * @param moduleName Module name
    * @returns Logger instance
    */
-  static getLogger(moduleName: string): Logger {
+  static getLogger(filename: string): Logger {
+    const moduleName = path.relative(process.cwd(), filename).replace(/\\/g, '/').replace('/', '.')
     if (!Logger.instances.has(moduleName)) {
       Logger.instances.set(moduleName, new Logger(moduleName))
     }
@@ -236,7 +213,7 @@ export class Logger {
       formattedMessage = this.formatMessage(message, args)
     }
 
-    this.logger.log(level, formattedMessage, { moduleName: this.moduleName })
+    this.logger.log(level, formattedMessage, ...args, { moduleName: this.moduleName })
   }
 
   /**
