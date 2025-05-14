@@ -55,6 +55,10 @@ export interface ExecuteActions {
  */
 export class ActionModel {
   [actionName: string]: ActionParameters
+  constructor(params: ExecuteActions) {
+    Object.assign(this, params)
+  }
+
   /**
    * Get the index of the action
    * @returns The index of the action or undefined if not found

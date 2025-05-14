@@ -1,14 +1,17 @@
 import type { BrowserConfig } from '@/browser/browser'
 import type { BrowserContextConfig } from '@/browser/context'
 
-import type { BrowserStateHistory } from '@/browser/view'
-
-import type { ActionModel, ExecuteActions } from '@/controller/registry/view'
-import type { DOMHistoryElement } from '@/dom/history_tree_processor/view'
+import type { ExecuteActions } from '@/controller/registry/view'
 import type { DOMElementNode, SelectorMap } from '@/dom/views'
+
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import fs from 'node:fs/promises'
+import { BrowserStateHistory } from '@/browser/view'
+import { ActionModel } from '@/controller/registry/view'
+import { DOMHistoryElement } from '@/dom/history_tree_processor/view'
+import { v4 as uuidv4 } from 'uuid'
 import { HistoryTreeProcessor } from '../dom/history_tree_processor/service'
+import { MessageManagerState } from './message_manager/view'
 
 // Types for tool calling method
 type ToolCallingMethod = 'function_calling' | 'json_mode' | 'raw' | 'auto' | 'tools'
@@ -155,13 +158,71 @@ export class AgentSettings {
   }
 }
 
+export class AgentState {
+  agentId: string
+  nStep: number
+  consecutiveFailures: number
+  lastResult?: ActionResult[]
+  history: AgentHistoryList
+  lastPlan?: string
+  paused: boolean
+  stopped: boolean
+  messageManagerState: MessageManagerState
+  constructor(data: Partial<AgentState>) {
+    this.agentId = data.agentId || uuidv4()
+    this.nStep = data.nStep ?? 1
+    this.consecutiveFailures = data.consecutiveFailures || 0
+    this.lastResult = data.lastResult || []
+    this.history = data.history || new AgentHistoryList({ history: [] })
+    this.lastPlan = data.lastPlan
+    this.paused = data.paused || false
+    this.stopped = data.stopped || false
+    this.messageManagerState = data.messageManagerState || new MessageManagerState()
+  }
+}
+
+export class AgentStepInfo {
+  stepNumber: number
+  maxSteps: number
+  constructor(data: Partial<AgentStepInfo>) {
+    this.stepNumber = data.stepNumber || 0
+    this.maxSteps = data.maxSteps || 0
+  }
+
+  /**
+   * Check if this is the last ste
+   */
+  isLastStep(): boolean {
+    return this.stepNumber >= this.maxSteps - 1
+  }
+}
+
+export interface ActionResultData {
+  isDone?: boolean
+  success?: boolean
+  extractedContent?: string
+  error?: string
+  includeInMemory?: boolean
+}
+
 /**
- * Current state of the agent
+ * Result of executing an action
  */
-export interface AgentBrain {
-  memory: string
-  nextGoal: string
-  evaluationPreviousGoal: string
+
+export class ActionResult implements ActionResultData {
+  isDone: boolean
+  success?: boolean
+  extractedContent?: string
+  error?: string
+  includeInMemory?: boolean
+
+  constructor(data: ActionResultData = {}) {
+    this.isDone = data.isDone || false
+    this.success = data.success
+    this.extractedContent = data.extractedContent
+    this.error = data.error
+    this.includeInMemory = data.includeInMemory || false
+  }
 }
 
 /**
@@ -207,28 +268,14 @@ export class StepMetadata {
     return this.stepEndTime - this.stepStartTime
   }
 }
-export interface ActionResultData {
-  isDone?: boolean
-  success?: boolean
-  extractedContent?: string
-  error?: string
-  includeInMemory?: boolean
-}
 
-export class ActionResult implements ActionResultData {
-  isDone: boolean
-  success?: boolean
-  extractedContent?: string
-  error?: string
-  includeInMemory?: boolean
-
-  constructor(data: ActionResultData = {}) {
-    this.isDone = data.isDone || false
-    this.success = data.success
-    this.extractedContent = data.extractedContent
-    this.error = data.error
-    this.includeInMemory = data.includeInMemory || false
-  }
+/**
+ * Current state of the agent
+ */
+export interface AgentBrain {
+  memory: string
+  nextGoal: string
+  evaluationPreviousGoal: string
 }
 
 /**
@@ -261,20 +308,28 @@ export class AgentOutput {
    */
   constructor(data: {
     currentState: AgentBrain
-    action: ActionModel[]
+    action: (ActionModel | ExecuteActions)[]
   }) {
     this.currentState = data.currentState
-    this.action = data.action
+    this.action = data.action.map((action) => {
+      if (action instanceof ActionModel) {
+        return action
+      }
+      else {
+        return new ActionModel(action)
+      }
+    })
   }
 
   /**
    * Extend actions with custom actions
    */
-  static typeWithCustomActions<T extends ExecuteActions>(customActions: T): typeof AgentOutput {
+  static typeWithCustomActions<T extends typeof ActionModel>(CustomActionModel: T) {
     class ExtendedAgentOutput extends AgentOutput {
+      declare action: InstanceType<T>[]
       constructor(data: {
         currentState: AgentBrain
-        action: T[]
+        action: InstanceType<T>[]
       }) {
         super(data)
       }
@@ -350,22 +405,23 @@ export class AgentHistory {
   /**
    * Custom serialization handling circular references
    */
-  modelDump(kwargs: Record<string, any> = {}) {
-    let modelOutputDump: AgentOutput | undefined
-    if (this.modelOutput) {
-      const actionDump = this.modelOutput.action.slice()
-
-      modelOutputDump = {
-        currentState: this.modelOutput.currentState,
-        action: actionDump, // This preserves the actual action data
-      }
-    }
+  toJSON(kwargs: Record<string, any> = {}) {
+    const modelOutputDump = this.modelOutput
+      ? {
+          currentState: this.modelOutput.currentState,
+          action: this.modelOutput.action.map((action) => {
+            return {
+              ...action,
+            }
+          }),
+        }
+      : undefined
 
     return {
       modelOutput: modelOutputDump,
       result: this.result,
-      state: this.state.toDict(),
-      metadata: this.metadata,
+      state: this.state.toJSON(),
+      metadata: this.metadata ? { ...this.metadata } : undefined,
     }
   }
 }
@@ -465,7 +521,7 @@ export class AgentHistoryList {
     const dirPath = pathStr.substring(0, pathStr.lastIndexOf('/'))
 
     await fs.mkdir(dirPath, { recursive: true })
-    const data = this.modelDump()
+    const data = this.toJSON()
     await fs.writeFile(pathStr, JSON.stringify(data, null, 2), { encoding: 'utf-8' })
   }
 
@@ -494,9 +550,9 @@ export class AgentHistoryList {
   /**
    * Custom serialization that properly uses AgentHistory's modelDump
    */
-  modelDump(kwargs: Record<string, any> = {}): Record<string, any> {
+  toJSON(kwargs: Record<string, any> = {}) {
     return {
-      history: this.history.map(h => h.modelDump(kwargs)),
+      history: this.history.map(h => h.toJSON(kwargs)),
     }
   }
 
@@ -508,20 +564,23 @@ export class AgentHistoryList {
     outputModel: typeof AgentOutput,
   ): Promise<AgentHistoryList> {
     const pathStr = filepath.toString()
-    const data = JSON.parse(await fs.readFile(pathStr, { encoding: 'utf-8' }))
+    const data: ReturnType<AgentHistoryList['toJSON']> = JSON.parse(await fs.readFile(pathStr, { encoding: 'utf-8' }))
 
     // Create and validate the model
-    return AgentHistoryList.modelValidate(data)
-  }
-
-  /**
-   * Validate the model from JSON data
-   */
-  static modelValidate(data: Record<string, any>): AgentHistoryList {
-    // In TypeScript we'd need to implement proper validation
-    // This is a simplified version
     return new AgentHistoryList({
-      history: data.history.map((h: any) => new AgentHistory(h)),
+      history: data.history.map((h) => {
+        return new AgentHistory({
+          modelOutput: h.modelOutput ? new AgentOutput(h.modelOutput) : undefined,
+          result: h.result,
+          state: new BrowserStateHistory({
+            ...h.state,
+            interactedElement: (h.state.interactedElement).map((el) => {
+              return el ? new DOMHistoryElement(el) : null
+            }),
+          }),
+          metadata: h.metadata ? new StepMetadata(h.metadata) : undefined,
+        })
+      }),
     })
   }
 
@@ -579,37 +638,37 @@ export class AgentHistoryList {
    * Check if the agent completed successfully - the agent decides in the last step if it was successful or not.
    * Returns null if not done yet.
    */
-  isSuccessful(): boolean | null {
+  isSuccessful(): boolean {
     if (this.history.length && this.history[this.history.length - 1].result.length > 0) {
       const lastResult = this.history[this.history.length - 1].result[
         this.history[this.history.length - 1].result.length - 1
       ]
       if (lastResult.isDone === true) {
-        return lastResult.success ?? null
+        return lastResult.success ?? false
       }
     }
-    return null
+    return false
   }
 
   /**
    * Check if the agent has any non-null errors
    */
   hasErrors(): boolean {
-    return this.errors().some(error => error !== null)
+    return this.errors().some(error => Boolean(error))
   }
 
   /**
    * Get all unique URLs from history
    */
-  urls(): (string | null)[] {
-    return this.history.map(h => h.state.url ?? null)
+  urls(): (string | undefined)[] {
+    return this.history.map(h => h.state.url)
   }
 
   /**
    * Get all screenshots from history
    */
-  screenshots(): (string | null)[] {
-    return this.history.map(h => h.state.screenshot ?? null)
+  screenshots(): (string | undefined)[] {
+    return this.history.map(h => h.state.screenshot)
   }
 
   /**
@@ -650,7 +709,7 @@ export class AgentHistoryList {
       if (h.modelOutput) {
         h.modelOutput.action.forEach((action, i) => {
           const output = action
-          output.interacted_element = h.state.interactedElement?.[i]
+          output.interactedElement = h.state.interactedElement?.[i]
           outputs.push(output)
         })
       }
@@ -711,5 +770,33 @@ export class AgentHistoryList {
    */
   numberOfSteps(): number {
     return this.history.length
+  }
+}
+
+/**
+ * Container for agent error handling
+ */
+export class AgentError {
+  /** Error message for validation errors */
+  static readonly VALIDATION_ERROR = 'Invalid model output format. Please follow the correct schema.'
+
+  /** Error message for rate limit errors */
+  static readonly RATE_LIMIT_ERROR = 'Rate limit reached. Waiting before retry.'
+
+  /** Error message when no valid action is found */
+  static readonly NO_VALID_ACTION = 'No valid action found'
+
+  /**
+   * Format error message based on error type and optionally include trace
+   * @param error The error that occurred
+   * @param includeTrace Whether to include stack trace in the output
+   * @returns Formatted error message
+   */
+  static formatError(error: Error, includeTrace: boolean = false): string {
+    if (includeTrace) {
+      return `${error.message}\nStacktrace:\n${error.stack || '(No stack trace available)'}`
+    }
+
+    return `${error.message}`
   }
 }

@@ -29,6 +29,7 @@
     "axios": "^1.9.0",
     "dotenv": "^16.5.0",
     "langchain": "^0.3.24",
+    "openai": "^4.98.0",
     "playwright": "^1.52.0",
     "posthog-node": "^4.17.1",
     "tree-kill": "^1.2.2",

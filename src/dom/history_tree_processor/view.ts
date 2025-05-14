@@ -89,7 +89,7 @@ class DOMHistoryElement {
     this.viewportInfo = viewportInfo
   }
 
-  toDict() {
+  toJSON() {
     const pageCoordinates = this.pageCoordinates ? { ...this.pageCoordinates } : undefined
     const viewportCoordinates = this.viewportCoordinates ? { ...this.viewportCoordinates } : undefined
     const viewportInfo = this.viewportInfo ? { ...this.viewportInfo } : undefined

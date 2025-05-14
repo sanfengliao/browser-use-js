@@ -22,15 +22,6 @@ export class TabInfo implements ITabInfo {
     this.title = data.title
     this.parentPageId = data.parentPageId
   }
-
-  toJSON() {
-    return {
-      pageId: this.pageId,
-      url: this.url,
-      title: this.title,
-      parentPageId: this.parentPageId,
-    }
-  }
 }
 
 // BrowserState 类
@@ -67,11 +58,15 @@ export class BrowserStateHistory {
     this.screenshot = data.screenshot
   }
 
-  toDict() {
+  toJSON() {
     return {
-      tabs: this.tabs.map(tab => tab.toJSON()),
+      tabs: this.tabs.map((tab) => {
+        return {
+          ...tab,
+        }
+      }),
       screenshot: this.screenshot,
-      interactedElement: this.interactedElement.map(el => el?.toDict() || null),
+      interactedElement: this.interactedElement.map(el => el?.toJSON() || null),
       url: this.url,
       title: this.title,
     }

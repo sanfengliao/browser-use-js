@@ -26,6 +26,9 @@ importers:
       langchain:
         specifier: ^0.3.24
         version: 0.3.24(@langchain/core@0.3.55(openai@4.98.0(ws@8.18.2)(zod@3.24.4)))(axios@1.9.0)(openai@4.98.0(ws@8.18.2)(zod@3.24.4))(ws@8.18.2)
+      openai:
+        specifier: ^4.98.0
+        version: 4.98.0(ws@8.18.2)(zod@3.24.4)
       playwright:
         specifier: ^1.52.0
         version: 1.52.0
