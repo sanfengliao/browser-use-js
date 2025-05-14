@@ -1,4 +1,4 @@
-import type { ActionResultData } from '@/agent/view'
+import type { ActionResultData } from '@/agent/views'
 import type { BrowserContext } from '@/browser/context'
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { Page } from 'playwright'

@@ -1,6 +1,6 @@
 import type { DragDropAction, SendKeysAction } from '@/controller/view'
 import http from 'node:http'
-import { ActionResult } from '@/agent/view'
+import { ActionResult } from '@/agent/views'
 import { Browser, BrowserConfig } from '@/browser/browser'
 import { BrowserContext } from '@/browser/context'
 import { ActionModel } from '@/controller/registry/view'

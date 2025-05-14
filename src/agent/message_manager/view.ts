@@ -1,6 +1,6 @@
 import type { BaseMessage } from '@langchain/core/dist/messages'
 import type { ToolCall } from '@langchain/core/dist/messages/tool'
-import type { AgentOutput } from '../view'
+import type { AgentOutput } from '../views'
 import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/dist/messages'
 
 export class MessageMetadata {
