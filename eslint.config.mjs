@@ -12,5 +12,7 @@ export default antfu({
     'ts/ban-ts-comment': 'off',
     'node/prefer-global/buffer': 'off',
     'jsdoc/check-param-names': 'off',
+    'ts/consistent-type-imports': 'off',
+    'style/brace-style': ['error', '1tbs', { allowSingleLine: true }],
   },
 })

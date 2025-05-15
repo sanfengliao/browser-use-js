@@ -58,3 +58,14 @@ export function timeExecutionAsync(additionalText: string = '') {
     }
   }
 }
+
+export function checkEnvVariables(
+  keys: string[],
+  anyOrAll: 'any' | 'all' = 'all',
+): boolean {
+  if (anyOrAll === 'any') {
+    return keys.some(key => (process.env[key] || '').trim() !== '')
+  } else {
+    return keys.every(key => (process.env[key] || '').trim() !== '')
+  }
+}

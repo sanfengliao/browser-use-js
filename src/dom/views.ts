@@ -201,8 +201,7 @@ class DOMElementNode extends DOMBaseNode {
 
       if (node instanceof DOMTextNode) {
         textParts.push(node.text)
-      }
-      else if (node instanceof DOMElementNode) {
+      } else if (node instanceof DOMElementNode) {
         for (const child of node.children) {
           collectText(child, currentDepth + 1)
         }
@@ -270,8 +269,7 @@ class DOMElementNode extends DOMBaseNode {
           let highlightIndicator
           if (node.isNew) {
             highlightIndicator = `*[${node.highlightIndex}]*`
-          }
-          else {
+          } else {
             highlightIndicator = `[${node.highlightIndex}]`
           }
 
@@ -287,9 +285,8 @@ class DOMElementNode extends DOMBaseNode {
               line += ' '
             }
             line += `>${text}`
-          }
-          // Add space before /> only if neither attributes NOR text were added
-          else if (!attributesHtmlStr) {
+          } else if (!attributesHtmlStr) {
+            // Add space before /> only if neither attributes NOR text were added
             line += ' '
           }
 
@@ -301,8 +298,7 @@ class DOMElementNode extends DOMBaseNode {
         for (const child of node.children) {
           processNode(child, nextDepth)
         }
-      }
-      else if (node instanceof DOMTextNode) {
+      } else if (node instanceof DOMTextNode) {
         // Add text only if it doesn't have a highlighted parent
         if (
           !node.hasParentWithHighlightIndex()

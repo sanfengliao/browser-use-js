@@ -1,5 +1,5 @@
 import type { DOMHistoryElement } from '../dom/history_tree_processor/view'
-import type { DOMElementNode, DOMState, SelectorMap } from '../dom/views'
+import type { DOMState } from '../dom/views'
 
 // 定义 TabInfo 接口
 interface ITabInfo {

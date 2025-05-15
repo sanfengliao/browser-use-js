@@ -1,6 +1,5 @@
 import type { Browser as PlaywrightBrowser } from 'playwright'
 import { spawn } from 'node:child_process'
-import http from 'node:http'
 import * as net from 'node:net'
 import { Logger } from '@/logger'
 import { timeExecutionAsync } from '@/utils'
@@ -238,8 +237,7 @@ export class Browser {
         })
         return browser
       }
-    }
-    catch (err) {
+    } catch (err) {
       logger.debug('🌎 No existing Chrome instance found, starting a new one')
     }
 
@@ -274,8 +272,7 @@ export class Browser {
         if (isRunning) {
           break
         }
-      }
-      catch (err) {
+      } catch (err) {
         // Ignore errors and continue trying
       }
       await new Promise(resolve => setTimeout(resolve, 1000))
@@ -300,8 +297,7 @@ export class Browser {
       // })
 
       // return browser
-    }
-    catch (err) {
+    } catch (err) {
       logger.error(`❌ Failed to start a new Chrome instance: ${err}`)
       throw new Error(
         'To start chrome in Debug mode, you need to close all existing Chrome instances and try again otherwise we can not connect to the instance.',
@@ -334,13 +330,11 @@ export class Browser {
         height: this.config.newContextConfig.windowHeight,
       };
       [offsetX, offsetY] = getWindowAdjustments()
-    }
-    else if (this.config.headless) {
+    } else if (this.config.headless) {
       screenSize = { width: 1920, height: 1080 }
       offsetX = 0
       offsetY = 0
-    }
-    else {
+    } else {
       screenSize = getScreenResolution();
       [offsetX, offsetY] = getWindowAdjustments()
     }
@@ -413,8 +407,7 @@ export class Browser {
       }
 
       return await this.setupBuiltinBrowser()
-    }
-    catch (error) {
+    } catch (error) {
       logger.error(`Failed to initialize Playwright browser, ${error}`)
       throw error
     }
@@ -449,19 +442,16 @@ export class Browser {
         treeKill(this.chromeSubprocessId, 'SIGKILL', (err) => {
           if (err) {
             logger.error(`Failed to kill Chrome subprocess ${err}`)
-          }
-          else {
+          } else {
             logger.info('Killed Chrome subprocess')
           }
         })
       }
-    }
-    catch (e: any) {
+    } catch (e: any) {
       if (!e.message.includes('OpenAI error')) {
         logger.debug(`Failed to close browser properly: ${e}`)
       }
-    }
-    finally {
+    } finally {
       this.playwrightBrowser = undefined
       this.chromeSubprocessId = undefined
     }

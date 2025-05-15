@@ -4,7 +4,7 @@ import type { BrowserContext } from '@/browser/context'
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { Page } from 'playwright'
 
-import type { Primitive, ZodType } from 'zod'
+import type { ZodType } from 'zod'
 import { z } from 'zod'
 
 import { zodToJsonSchema } from 'zod-to-json-schema'
@@ -55,7 +55,11 @@ export interface ExecuteActions {
  */
 export class ActionModel {
   [actionName: string]: ActionParameters
+  schema?: z.ZodType
   constructor(params: ExecuteActions) {
+    if (this.schema) {
+      params = this.schema.parse(params)
+    }
     Object.assign(this, params)
   }
 

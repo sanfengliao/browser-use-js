@@ -9,7 +9,7 @@ import { ControllerRegisteredFunctionsTelemetryEvent } from '@/telemetry/view'
 import { z } from 'zod'
 import zodToJsonSchema from 'zod-to-json-schema'
 import { timeExecutionAsync } from '../../utils'
-import { ActionRegistry, RegisteredAction } from './view'
+import { ActionModel, ActionRegistry, RegisteredAction } from './view'
 
 type Context = any
 
@@ -25,7 +25,7 @@ interface ExecuteActionParams<C> {
 
 interface CreateActionSchemaParams {
   includeActions?: string[]
-  page?: any
+  page?: Page
 }
 
 export class Registry<C = Context> {
@@ -201,6 +201,14 @@ export class Registry<C = Context> {
     )
 
     return z.object(schema)
+  }
+
+  createActionModel(params?: CreateActionSchemaParams) {
+    const schema = this.createActionSchema(params)
+
+    return class extends ActionModel {
+      schema = schema
+    }
   }
 
   /**

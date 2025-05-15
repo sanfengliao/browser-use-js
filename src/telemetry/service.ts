@@ -47,8 +47,7 @@ export class ProductTelemetry {
 
     if (telemetryDisabled) {
       this.postHogClient = null
-    }
-    else {
+    } else {
       logger.info(
         'Anonymized telemetry enabled. See https://docs.browser-use.com/development/telemetry for more information.',
       )
@@ -97,8 +96,7 @@ export class ProductTelemetry {
         event: event.name,
         properties: { ...event.properties, ...POSTHOG_EVENT_SETTINGS },
       })
-    }
-    catch (e) {
+    } catch (e) {
       logger.error(`Failed to send telemetry event ${event.name}: ${e}`)
     }
   }
@@ -116,12 +114,10 @@ export class ProductTelemetry {
         const newUserId = uuidv4()
         fs.writeFileSync(ProductTelemetry.USER_ID_PATH, newUserId)
         this.currUserId = newUserId
-      }
-      else {
+      } else {
         this.currUserId = fs.readFileSync(ProductTelemetry.USER_ID_PATH, 'utf8')
       }
-    }
-    catch (e) {
+    } catch (e) {
       this.currUserId = 'UNKNOWN_USER_ID'
     }
     return this.currUserId!

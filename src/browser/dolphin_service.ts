@@ -83,8 +83,7 @@ export class DolphinBrowser extends Browser {
         // Navigate to the URL and wait for the page to load
         await newPage.goto(url, { waitUntil: 'networkidle' })
         await this.waitForPageLoad()
-      }
-      catch (e) {
+      } catch (e) {
         logger.error(`Failed to navigate to URL ${url}: ${e}`)
         throw e
       }
@@ -145,8 +144,7 @@ export class DolphinBrowser extends Browser {
     if (this.page) {
       try {
         await this.page.waitForLoadState('networkidle', { timeout })
-      }
-      catch (e) {
+      } catch (e) {
         logger.warning(`Wait for page load timeout: ${e}`)
       }
     }
@@ -177,8 +175,7 @@ export class DolphinBrowser extends Browser {
         token: this.apiToken,
       })
       return response.data
-    }
-    catch (error) {
+    } catch (error) {
       throw new Error(`Failed to authenticate with Dolphin Anty: ${error}`)
     }
   }
@@ -199,8 +196,7 @@ export class DolphinBrowser extends Browser {
         headers: { Authorization: `Bearer ${this.apiToken}` },
       })
       return response.data.data || [] // Return the profiles array from the response
-    }
-    catch (error) {
+    } catch (error) {
       throw new Error(`Failed to get browser profiles: ${error}`)
     }
   }
@@ -232,8 +228,7 @@ export class DolphinBrowser extends Browser {
     try {
       const response = await axios.get(url, { params })
       return response.data
-    }
-    catch (error) {
+    } catch (error) {
       throw new Error(`Failed to start profile: ${error}`)
     }
   }
@@ -258,8 +253,7 @@ export class DolphinBrowser extends Browser {
     try {
       const response = await axios.get(url)
       return response.data
-    }
-    catch (error) {
+    } catch (error) {
       throw new Error(`Failed to stop profile: ${error}`)
     }
   }
@@ -314,8 +308,7 @@ export class DolphinBrowser extends Browser {
         for (const page of this.pages) {
           try {
             await page.close()
-          }
-          catch (e) {
+          } catch (e) {
             // Ignore errors during page closing
           }
         }
@@ -330,8 +323,7 @@ export class DolphinBrowser extends Browser {
       if (force) {
         await this.stopProfile() // Force stop the profile
       }
-    }
-    catch (e) {
+    } catch (e) {
       logger.error(`Error during browser cleanup: ${e}`)
     }
   }

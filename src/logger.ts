@@ -45,8 +45,7 @@ export function setupLogging(): void {
       const parts = info.message.split('.')
       info.moduleName = parts.slice(0, -1).join('.')
       info.message = parts[parts.length - 1]
-    }
-    else {
+    } else {
       info.moduleName = info.moduleName || 'root'
     }
     return info

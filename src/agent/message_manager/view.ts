@@ -61,7 +61,7 @@ export class MessageHistory {
     const toolCalls: ToolCall[] = [
       {
         name: 'AgentOutput',
-        args: this.convertToJSON(output),
+        args: output.toJSON(),
         id: '1',
         type: 'tool_call',
       },
@@ -120,14 +120,6 @@ export class MessageHistory {
       this.currentTokens -= this.messages[this.messages.length - 1].metadata.tokens
       this.messages.pop()
     }
-  }
-
-  /**
-   * Convert object to JSON, excluding undefined values
-   */
-  private convertToJSON(obj: any): Record<string, any> {
-    return JSON.parse(JSON.stringify(obj, (key, value) =>
-      value === undefined ? undefined : value))
   }
 }
 

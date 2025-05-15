@@ -194,8 +194,7 @@ export class BrowserContext {
       if (this.session.context && this.pageEventHandler) {
         try {
           this.session.context.removeListener('page', this.pageEventHandler)
-        }
-        catch (e) {
+        } catch (e) {
           logger.error(`Failed to remove CDP listener: ${e}`)
         }
       }
@@ -206,8 +205,7 @@ export class BrowserContext {
           await this.session.context.tracing.stop({
             path: path.join(this.config.tracePath, `${this.contextId}.zip`),
           })
-        }
-        catch (e) {
+        } catch (e) {
           logger.debug(`Failed to stop tracing: ${e}`)
         }
       }
@@ -216,16 +214,13 @@ export class BrowserContext {
         logger.debug('Closing browser context')
         try {
           await this.session.context.close()
-        }
-        catch (e) {
+        } catch (e) {
           logger.error(`Failed to close context: ${e}`)
         }
       }
-    }
-    catch (e) {
+    } catch (e) {
       logger.error(`Error closing browser context ${e}`)
-    }
-    finally {
+    } finally {
       this.humanCurrentPage = undefined
       this.agentCurrentPage = undefined
       this.session = undefined
@@ -285,8 +280,7 @@ export class BrowserContext {
       ) {
         currentPage = pages[0]
         logger.debug(`🔍 Using existing page: ${currentPage.url()}`)
-      }
-      else {
+      } else {
         currentPage = await context.newPage()
         await currentPage.goto('about:blank')
         logger.debug(`🆕 Created new page: ${currentPage.url()}`)
@@ -413,8 +407,7 @@ export class BrowserContext {
       if (page.url() !== this.agentCurrentPage?.url()) {
         await onVisibilityChange({ source: 'navigation' })
       }
-    }
-    catch (e) {
+    } catch (e) {
       logger.debug(`Failed to add tab focus listener to ${page.url()}: ${e}`)
     }
   }
@@ -426,8 +419,7 @@ export class BrowserContext {
     if (!this.session) {
       try {
         return await this.initializeSession()
-      }
-      catch (e) {
+      } catch (e) {
         logger.error(`❌  Failed to create new browser session: ${e} (did the browser process quit?)`)
         throw e
       }
@@ -500,8 +492,7 @@ export class BrowserContext {
       const newPage = await session.context.newPage()
       this.agentCurrentPage = newPage
       this.humanCurrentPage = newPage
-    }
-    catch (e) {
+    } catch (e) {
       // Last resort - recreate the session
       logger.warn('⚠️ No browser window available, recreating session')
       await this.initializeSession()
@@ -567,16 +558,14 @@ export class BrowserContext {
           await this.setViewportSize(page)
         }
       }
-    }
-    else if (this.browser.config.browserBinaryPath && browser.contexts().length > 0 && !this.config.forceNewContext) {
+    } else if (this.browser.config.browserBinaryPath && browser.contexts().length > 0 && !this.config.forceNewContext) {
       context = browser.contexts()[0]
       if (context.pages().length > 0 && !this.browser.config.headless) {
         for (const page of context.pages()) {
           await this.setViewportSize(page)
         }
       }
-    }
-    else {
+    } else {
       const args: BrowserContextOptions = {}
       // set viewport for both headless and non-headless modes
       if (this.browser.config.headless) {
@@ -585,8 +574,7 @@ export class BrowserContext {
           width: this.config.windowWidth,
           height: this.config.windowHeight,
         }
-      }
-      else {
+      } else {
         args.viewport = this.config.noViewport
           ? undefined
           : {
@@ -671,12 +659,10 @@ export class BrowserContext {
         }
         logger.info(`🍪 Loaded ${cookies.length} cookies from ${this.config.cookiesFile}`)
         await context.addCookies(cookies)
-      }
-      catch (e) {
+      } catch (e) {
         if (e instanceof SyntaxError) {
           logger.error(`Failed to parse cookies file: ${e.toString()}`)
-        }
-        else {
+        } else {
           logger.error(`Error loading cookies: ${e}`)
         }
       }
@@ -894,8 +880,7 @@ export class BrowserContext {
           break
         }
       }
-    }
-    finally {
+    } finally {
       // Clean up event listeners
       page.removeListener('request', onRequest)
       page.removeListener('response', onResponse)
@@ -922,12 +907,10 @@ export class BrowserContext {
       // Check if the loaded URL is allowed
       const page = await this.getAgentCurrentPage()
       await this.checkAndHandleNavigation(page)
-    }
-    catch (e) {
+    } catch (e) {
       if (e instanceof URLNotAllowedError) {
         throw e
-      }
-      else {
+      } else {
         logger.warn('⚠️ Page load failed, continuing...')
       }
     }
@@ -973,8 +956,7 @@ export class BrowserContext {
           domain === allowedDomain.toLowerCase()
           || domain.endsWith(`.${allowedDomain.toLowerCase()}`),
       )
-    }
-    catch (e) {
+    } catch (e) {
       logger.error(`⛔️ Error checking URL allowlist: ${e}`)
       return false
     }
@@ -989,8 +971,7 @@ export class BrowserContext {
       logger.warn(`⛔️ Navigation to non-allowed URL detected: ${page.url()}`)
       try {
         await this.goBack()
-      }
-      catch (e) {
+      } catch (e) {
         logger.error(`⛔️ Failed to go back after detecting non-allowed URL: ${e}`)
       }
       throw new URLNotAllowedError(`Navigation to non-allowed URL: ${page.url()}`)
@@ -1031,8 +1012,7 @@ export class BrowserContext {
         timeout: 10,
         waitUntil: 'domcontentloaded',
       })
-    }
-    catch (e) {
+    } catch (e) {
       // Continue even if its not fully loaded, because we wait later for the page to load
       logger.debug(`⏮️  Error during goBack: ${e}`)
     }
@@ -1049,8 +1029,7 @@ export class BrowserContext {
         timeout: 10,
         waitUntil: 'domcontentloaded',
       })
-    }
-    catch (e) {
+    } catch (e) {
       // Continue even if its not fully loaded, because we wait later for the page to load
       logger.debug(`⏮️  Error during goForward: ${e}`)
     }
@@ -1162,12 +1141,10 @@ export class BrowserContext {
               if (iframeDoc) {
                 structure += `${indent}  [IFRAME CONTENT]:\n`
                 structure += getPageStructure(iframeDoc, depth + 2, maxDepth)
-              }
-              else {
+              } else {
                 structure += `${indent}  [IFRAME: No access - likely cross-origin]\n`
               }
-            }
-            catch (e: any) {
+            } catch (e: any) {
               structure += `${indent}  [IFRAME: Access denied - ${e.message}]\n`
             }
           }
@@ -1254,8 +1231,7 @@ export class BrowserContext {
       page = await this.getAgentCurrentPage()
       // Test if page is still accessible
       await page.evaluate('1')
-    }
-    catch (e) {
+    } catch (e) {
       logger.debug(`👋 Current page is no longer accessible: ${e}`)
       throw new BrowserError('Browser closed: no valid pages available')
     }
@@ -1319,8 +1295,7 @@ export class BrowserContext {
       }
 
       return this.currentState
-    }
-    catch (e) {
+    } catch (e) {
       logger.error(`❌ Failed to update state: ${e}`)
       // Return last known good state if available
       if (this.currentState) {
@@ -1377,13 +1352,11 @@ export class BrowserContext {
           highlightedElements.forEach((el) => {
             el.removeAttribute('browser-user-highlight-id')
           })
-        }
-        catch (e) {
+        } catch (e) {
           console.error('Failed to remove highlights:', e)
         }
       })
-    }
-    catch (e) {
+    } catch (e) {
       logger.debug(`⚠ Failed to remove highlights (this is usually ok): ${e}`)
       // Don't raise the error since this is not critical functionality
     }
@@ -1437,26 +1410,22 @@ export class BrowserContext {
             if (/^\d+$/.test(idx)) {
               const index = Number.parseInt(idx) - 1
               finalPart += `:nth-of-type(${index + 1})`
-            }
-            // Handle last() function
-            else if (idx === 'last()') {
+            } else if (idx === 'last()') {
+              // Handle last() function
               finalPart += ':last-of-type'
-            }
-            // Handle position() functions
-            else if (idx.includes('position()')) {
+            } else if (idx.includes('position()')) {
+              // Handle position() functions
               if (idx.includes('>1')) {
                 finalPart += ':nth-of-type(n+2)'
               }
             }
-          }
-          catch (e) {
+          } catch (e) {
             continue
           }
         }
 
         cssParts.push(finalPart)
-      }
-      else {
+      } else {
         cssParts.push(part)
       }
     }
@@ -1494,8 +1463,7 @@ export class BrowserContext {
           if (validClassNamePattern.test(className)) {
             // Append the valid class name to the CSS selector
             cssSelector += `.${className}`
-          }
-          else {
+          } else {
             // Skip invalid class names
             continue
           }
@@ -1563,8 +1531,7 @@ export class BrowserContext {
         // Handle different value cases
         if (value === '') {
           cssSelector += `[${safeAttribute}]`
-        }
-        else if (/["'<>`\n\r\t]/.test(value)) {
+        } else if (/["'<>`\n\r\t]/.test(value)) {
           // Use contains for values with special characters
           // For newline-containing text, only use the part before the newline
           let processedValue = value
@@ -1576,15 +1543,13 @@ export class BrowserContext {
           // Escape embedded double-quotes.
           const safeValue = collapsedValue.replace(/"/g, '\\"')
           cssSelector += `[${safeAttribute}*="${safeValue}"]`
-        }
-        else {
+        } else {
           cssSelector += `[${safeAttribute}="${value}"]`
         }
       }
 
       return cssSelector
-    }
-    catch (e) {
+    } catch (e) {
       // Fallback to a more basic selector if something goes wrong
       const tagName = element.tagName || '*'
       return `${tagName}[highlightIndex='${element.highlightIndex}']`
@@ -1626,8 +1591,7 @@ export class BrowserContext {
       if ('first' in currentFrame) {
         const elementHandle = await currentFrame.locator(cssSelector).elementHandle()
         return elementHandle
-      }
-      else {
+      } else {
         // Try to scroll into view if hidden
         const elementHandle = await currentFrame.$(cssSelector)
         if (elementHandle) {
@@ -1639,8 +1603,7 @@ export class BrowserContext {
         }
         return null
       }
-    }
-    catch (e) {
+    } catch (e) {
       logger.error(`❌ Failed to locate element: ${e}`)
       return null
     }
@@ -1664,8 +1627,7 @@ export class BrowserContext {
         return elementHandle
       }
       return null
-    }
-    catch (e) {
+    } catch (e) {
       logger.error(`❌ Failed to locate element by XPath ${xpath}: ${e}`)
       return null
     }
@@ -1689,8 +1651,7 @@ export class BrowserContext {
         return elementHandle
       }
       return null
-    }
-    catch (e) {
+    } catch (e) {
       logger.error(`❌ Failed to locate element by CSS selector ${cssSelector}: ${e}`)
       return null
     }
@@ -1734,13 +1695,11 @@ export class BrowserContext {
       if (nth !== null) {
         if (nth >= 0 && nth < visibleElements.length) {
           elementHandle = visibleElements[nth]
-        }
-        else {
+        } else {
           logger.error(`Visible element with text '${text}' not found at index ${nth}.`)
           return null
         }
-      }
-      else {
+      } else {
         elementHandle = visibleElements[0]
       }
 
@@ -1749,8 +1708,7 @@ export class BrowserContext {
         await elementHandle.scrollIntoViewIfNeeded()
       }
       return elementHandle
-    }
-    catch (e) {
+    } catch (e) {
       logger.error(`❌ Failed to locate element by text '${text}': ${e}`)
       return null
     }
@@ -1781,8 +1739,7 @@ export class BrowserContext {
         if (!isHidden) {
           await elementHandle.scrollIntoViewIfNeeded({ timeout: 1000 })
         }
-      }
-      catch (e) {
+      } catch (e) {
         // Continue even if this fails
       }
 
@@ -1803,12 +1760,10 @@ export class BrowserContext {
           el.value = ''
         })
         await elementHandle.type(text, { delay: 5 })
-      }
-      else {
+      } else {
         await elementHandle.fill(text)
       }
-    }
-    catch (e) {
+    } catch (e) {
       logger.debug(`❌ Failed to input text into element: ${elementNode}. Error: ${e}`)
       throw new BrowserError(`Failed to input text into index ${elementNode.highlightIndex}`)
     }
@@ -1850,16 +1805,14 @@ export class BrowserContext {
             await download.saveAs(downloadPath)
             logger.debug(`⬇️ Download triggered. Saved file to: ${downloadPath}`)
             return downloadPath
-          }
-          catch (e) {
+          } catch (e) {
             // If no download is triggered, treat as normal click
             logger.debug('No download triggered within timeout. Checking navigation...')
             await page.waitForLoadState()
             await this.checkAndHandleNavigation(page)
             return null
           }
-        }
-        else {
+        } else {
           // Standard click logic if no download is expected
           await clickFunc()
           await page.waitForLoadState()
@@ -1870,8 +1823,7 @@ export class BrowserContext {
 
       try {
         return await performClick(() => elementHandle.click({ timeout: 1500 }))
-      }
-      catch (e) {
+      } catch (e) {
         if (e instanceof URLNotAllowedError) {
           throw e
         }
@@ -1880,16 +1832,14 @@ export class BrowserContext {
             // @ts-expect-error
             el.click()
           }, elementHandle))
-        }
-        catch (e) {
+        } catch (e) {
           if (e instanceof URLNotAllowedError) {
             throw e
           }
           throw new Error(`Failed to click element: ${e}`)
         }
       }
-    }
-    catch (e) {
+    } catch (e) {
       if (e instanceof URLNotAllowedError) {
         throw e
       }
@@ -1928,8 +1878,7 @@ export class BrowserContext {
           title,
         })
         tabsInfo.push(tabInfo)
-      }
-      catch (e) {
+      } catch (e) {
         // page.title() can hang forever on tabs that are crashed/disappeared/about:blank
         // we dont want to try automating those tabs because they will hang the whole script
         logger.debug(`⚠ Failed to get tab info for tab #${pageId}: ${page.url()} (ignoring)`)
@@ -2080,8 +2029,7 @@ export class BrowserContext {
           this.config.cookiesFile,
           JSON.stringify(cookies),
         )
-      }
-      catch (e) {
+      } catch (e) {
         logger.warn(`❌ Failed to save cookies: ${e}`)
       }
     }
@@ -2211,8 +2159,7 @@ export class BrowserContext {
         await page.setViewportSize(viewportSize)
         logger.debug(`Set viewport size to ${this.config.windowWidth}x${this.config.windowHeight}`)
       }
-    }
-    catch (e) {
+    } catch (e) {
       logger.error(`Failed to set viewport size for page: ${e}`)
     }
   }
@@ -2234,8 +2181,7 @@ export class BrowserContext {
       const result = await cdpSession.send('Target.getTargets')
       await cdpSession.detach()
       return result.targetInfos
-    }
-    catch (e) {
+    } catch (e) {
       logger.debug('Failed to get CDP targets: ', e)
       return []
     }
@@ -2279,8 +2225,7 @@ export class BrowserContext {
 
         await cdpSession.detach()
         logger.debug(`Set window size to ${windowSize.width}x${windowSize.height + BROWSER_NAVBAR_HEIGHT}`)
-      }
-      catch (e) {
+      } catch (e) {
         logger.debug(`CDP window resize failed: ${e}`)
 
         // Fallback to using JavaScript
@@ -2299,15 +2244,13 @@ export class BrowserContext {
           logger.debug(
             `Used JavaScript to set window size to ${windowSize.width}x${windowSize.height + BROWSER_NAVBAR_HEIGHT}`,
           )
-        }
-        catch (e) {
+        } catch (e) {
           logger.debug(`JavaScript window resize failed: ${e}`)
         }
       }
 
       logger.debug(`Attempted to resize window to ${windowSize.width}x${windowSize.height}`)
-    }
-    catch (e) {
+    } catch (e) {
       logger.debug(`Failed to resize browser window: ${e}`)
       // Non-critical error, continue execution
     }

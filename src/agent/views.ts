@@ -168,7 +168,7 @@ export class AgentState {
   paused: boolean
   stopped: boolean
   messageManagerState: MessageManagerState
-  constructor(data: Partial<AgentState>) {
+  constructor(data: Partial<AgentState> = {}) {
     this.agentId = data.agentId || uuidv4()
     this.nStep = data.nStep ?? 1
     this.consecutiveFailures = data.consecutiveFailures || 0
@@ -297,13 +297,6 @@ export class AgentOutput {
   action: ActionModel[]
 
   /**
-   * Model configuration allowing arbitrary types
-   */
-  static modelConfig = {
-    arbitraryTypesAllowed: true,
-  }
-
-  /**
    * Create a new AgentOutput instance
    */
   constructor(data: {
@@ -314,11 +307,21 @@ export class AgentOutput {
     this.action = data.action.map((action) => {
       if (action instanceof ActionModel) {
         return action
-      }
-      else {
+      } else {
         return new ActionModel(action)
       }
     })
+  }
+
+  toJSON() {
+    return {
+      currentState: this.currentState,
+      action: this.action.map((action) => {
+        return {
+          ...action,
+        }
+      }),
+    }
   }
 
   /**
@@ -334,10 +337,6 @@ export class AgentOutput {
         super(data)
       }
     }
-
-    // Set documentation
-    Object.defineProperty(ExtendedAgentOutput, 'name', { value: 'AgentOutput' })
-    Object.defineProperty(ExtendedAgentOutput, '__doc__', { value: 'AgentOutput model with custom actions' })
 
     return ExtendedAgentOutput
   }
@@ -393,8 +392,7 @@ export class AgentHistory {
       if (index !== undefined && index in selectorMap) {
         const el: DOMElementNode = selectorMap[index]
         elements.push(HistoryTreeProcessor.convertDomElementToHistoryElement(el))
-      }
-      else {
+      } else {
         elements.push(undefined)
       }
     }

@@ -13,7 +13,6 @@ export class HistoryTreeProcessor {
   static convertDomElementToHistoryElement(domElement: DOMElementNode): DOMHistoryElement {
     const parentBranchPath = HistoryTreeProcessor.getParentBranchPath(domElement)
 
-    // TODO: import BrowserContext
     const cssSelector = BrowserContext.enhancedCssSelectorForElement(domElement)
 
     return new DOMHistoryElement({

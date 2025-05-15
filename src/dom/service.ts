@@ -6,8 +6,6 @@ import type {
 
   SelectorMap,
 } from './views'
-import * as fs from 'node:fs'
-import * as path from 'node:path'
 import { URL } from 'node:url'
 import { Logger } from '../logger'
 import { timeExecutionAsync } from '../utils'
@@ -64,8 +62,7 @@ export class DomService {
             && parsedFrameUrl.hostname !== parsedPageUrl.hostname // exclude same-origin iframes
             && !hiddenFrameUrls.includes(frame.url()) // exclude hidden frames
             && !isAdUrl(frame.url()) // exclude most common ad network tracker frame URLs
-        }
-        catch (e) {
+        } catch (e) {
           return false
         }
       })
@@ -123,8 +120,7 @@ export class DomService {
       }
 
       return await this.constructDomTree(evalPage)
-    }
-    catch (e) {
+    } catch (e) {
       logger.error('Error evaluating JavaScript: %s', e)
       throw e
     }

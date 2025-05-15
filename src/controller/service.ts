@@ -1,4 +1,3 @@
-import type { ActionResultData } from '@/agent/views'
 import type { BrowserContext } from '@/browser/context'
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { Page } from 'playwright'
@@ -14,7 +13,7 @@ import { Registry } from './registry/service'
 
 const logger = Logger.getLogger(import.meta.url)
 
-export class Controller {
+export class Controller<Context = any> {
   registry: Registry
   constructor(params: { excludeActions?: string[] } = {}) {
     const { excludeActions = [] } = params
@@ -152,8 +151,7 @@ export class Controller {
           const downloadPath = await browser.clickElementNode(elementNode)
           if (downloadPath) {
             msg = `💾  Downloaded file to ${downloadPath}`
-          }
-          else {
+          } else {
             msg = `🖱️  Clicked button with index ${params.index}: ${elementNode.getAllTextTillNextClickableElement(2)}`
           }
 
@@ -171,8 +169,7 @@ export class Controller {
             extractedContent: msg,
             includeInMemory: true,
           }
-        }
-        catch (e) {
+        } catch (e) {
           logger.warn(`Element not clickable with index ${params.index} - most likely the page changed`)
           return {
             error: e instanceof Error ? e.message : String(e),
@@ -207,8 +204,7 @@ export class Controller {
         let msg
         if (!hasSensitiveData) {
           msg = `⌨️  Input ${params.text} into index ${params.index}`
-        }
-        else {
+        } else {
           msg = `⌨️  Input sensitive data into index ${params.index}`
         }
 
@@ -363,8 +359,7 @@ export class Controller {
             extractedContent: msg,
             includeInMemory: true,
           }
-        }
-        catch (e) {
+        } catch (e) {
           logger.debug(`Error extracting content: ${e}`)
           const msg = `📄  Extracted from page\n: ${content}\n`
           logger.info(msg)
@@ -387,8 +382,7 @@ export class Controller {
 
         if (params.amount !== undefined) {
           await page.evaluate(`window.scrollBy(0, ${params.amount});`)
-        }
-        else {
+        } else {
           await page.evaluate('window.scrollBy(0, window.innerHeight);')
         }
 
@@ -417,8 +411,7 @@ export class Controller {
 
         if (params.amount !== undefined) {
           await page.evaluate(`window.scrollBy(0, -${params.amount});`)
-        }
-        else {
+        } else {
           await page.evaluate('window.scrollBy(0, -window.innerHeight);')
         }
 
@@ -447,21 +440,18 @@ export class Controller {
 
         try {
           await page.keyboard.press(params.keys)
-        }
-        catch (e: any) {
+        } catch (e: any) {
           if (e.toString().includes('Unknown key')) {
             // loop over the keys and try to send each one
             for (const key of params.keys) {
               try {
                 await page.keyboard.press(key)
-              }
-              catch (keyError: any) {
+              } catch (keyError: any) {
                 logger.debug(`Error sending key ${key}: ${keyError.toString()}`)
                 throw keyError
               }
             }
-          }
-          else {
+          } else {
             throw e
           }
         }
@@ -479,11 +469,13 @@ export class Controller {
     this.registry.registerAction({
       name: 'scroll_to_text',
       description: 'If you dont find something which you want to interact with, scroll to it',
-      paramSchema: z.string(),
+      paramSchema: z.object({
+        text: z.string(),
+      }),
       requiredActionContext: {
         browser: true,
       },
-      execute: async (text, { browser }) => {
+      execute: async ({ text }, { browser }) => {
         const page = await browser.getCurrentPage()
 
         try {
@@ -507,8 +499,7 @@ export class Controller {
                   includeInMemory: true,
                 }
               }
-            }
-            catch (e: any) {
+            } catch (e: any) {
               logger.debug(`Locator attempt failed: ${e.toString()}`)
               continue
             }
@@ -520,8 +511,7 @@ export class Controller {
             extractedContent: msg,
             includeInMemory: true,
           }
-        }
-        catch (e: any) {
+        } catch (e: any) {
           const msg = `Failed to scroll to text '${text}': ${e.toString()}`
           logger.error(msg)
           return {
@@ -582,8 +572,7 @@ export class Controller {
 
                 allOptions.push(...formattedOptions)
               }
-            }
-            catch (frameE: any) {
+            } catch (frameE: any) {
               logger.debug(`Frame ${frameIndex} evaluation failed: ${frameE.toString()}`)
             }
 
@@ -597,8 +586,7 @@ export class Controller {
               extractedContent: msg,
               includeInMemory: true,
             }
-          }
-          else {
+          } else {
             const msg = 'No options found in any frame for dropdown'
             logger.info(msg)
             return {
@@ -606,8 +594,7 @@ export class Controller {
               includeInMemory: true,
             }
           }
-        }
-        catch (e: any) {
+        } catch (e: any) {
           logger.error(`Failed to get dropdown options: ${e.toString()}`)
           const msg = `Error getting options: ${e.toString()}`
           logger.info(msg)
@@ -676,8 +663,7 @@ export class Controller {
                     currentValue: select.value,
                     availableOptions: Array.from(select.options).map(o => o.text.trim()),
                   }
-                }
-                catch (e: any) {
+                } catch (e: any) {
                   return { error: e.toString(), found: false }
                 }
               }, domElement.xpath)
@@ -703,8 +689,7 @@ export class Controller {
                   includeInMemory: true,
                 }
               }
-            }
-            catch (frameE: any) {
+            } catch (frameE: any) {
               logger.error(`Frame ${frameIndex} attempt failed: ${frameE.toString()}`)
               logger.error(`Frame type: ${typeof frame}`)
               logger.error(`Frame URL: ${frame.url()}`)
@@ -719,8 +704,7 @@ export class Controller {
             extractedContent: msg,
             includeInMemory: true,
           }
-        }
-        catch (e: any) {
+        } catch (e: any) {
           const msg = `Selection failed: ${e.toString()}`
           logger.error(msg)
           return {
@@ -777,20 +761,17 @@ export class Controller {
             if (sourceCount > 0) {
               sourceElement = await sourceLocator.first().elementHandle()
               logger.debug(`Found source element with selector: ${sourceSelector}`)
-            }
-            else {
+            } else {
               logger.warn(`Source element not found: ${sourceSelector}`)
             }
 
             if (targetCount > 0) {
               targetElement = await targetLocator.first().elementHandle()
               logger.debug(`Found target element with selector: ${targetSelector}`)
-            }
-            else {
+            } else {
               logger.warn(`Target element not found: ${targetSelector}`)
             }
-          }
-          catch (e: any) {
+          } catch (e: any) {
             logger.error(`Error finding elements: ${e.toString()}`)
           }
 
@@ -811,8 +792,7 @@ export class Controller {
             // Get source coordinates
             if (sourcePosition) {
               sourceCoords = [sourcePosition.x, sourcePosition.y]
-            }
-            else {
+            } else {
               const sourceBox = await sourceElement.boundingBox()
               if (sourceBox) {
                 sourceCoords = [
@@ -825,8 +805,7 @@ export class Controller {
             // Get target coordinates
             if (targetPosition) {
               targetCoords = [targetPosition.x, targetPosition.y]
-            }
-            else {
+            } else {
               const targetBox = await targetElement.boundingBox()
               if (targetBox) {
                 targetCoords = [
@@ -835,8 +814,7 @@ export class Controller {
                 ]
               }
             }
-          }
-          catch (e: any) {
+          } catch (e: any) {
             logger.error(`Error getting element coordinates: ${e.toString()}`)
           }
 
@@ -857,8 +835,7 @@ export class Controller {
             try {
               await page.mouse.move(sourceX, sourceY)
               logger.debug(`Moved to source position (${sourceX}, ${sourceY})`)
-            }
-            catch (e: any) {
+            } catch (e: any) {
               logger.error(`Failed to move to source position: ${e.toString()}`)
               return [false, `Failed to move to source position: ${e.toString()}`]
             }
@@ -889,8 +866,7 @@ export class Controller {
             await page.mouse.up()
 
             return [true, 'Drag operation completed successfully']
-          }
-          catch (e: any) {
+          } catch (e: any) {
             return [false, `Error during drag operation: ${e.toString()}`]
           }
         }
@@ -941,21 +917,19 @@ export class Controller {
 
             [sourceX, sourceY] = sourceCoords;
             [targetX, targetY] = targetCoords
-          }
-          // Coordinates provided directly
-          else if (
+          } else if (
             params.coordSourceX !== undefined
             && params.coordSourceY !== undefined
             && params.coordTargetX !== undefined
             && params.coordTargetY !== undefined
           ) {
+            // Coordinates provided directly
             logger.debug('Using coordinate-based approach')
             sourceX = params.coordSourceX
             sourceY = params.coordSourceY
             targetX = params.coordTargetX
             targetY = params.coordTargetY
-          }
-          else {
+          } else {
             const errorMsg = 'Must provide either source/target selectors or source/target coordinates'
             return {
               error: errorMsg,
@@ -995,8 +969,7 @@ export class Controller {
           let msg: string
           if (params.elementSource && params.elementTarget) {
             msg = `🖱️ Dragged element '${params.elementSource}' to '${params.elementTarget}'`
-          }
-          else {
+          } else {
             msg = `🖱️ Dragged from (${sourceX}, ${sourceY}) to (${targetX}, ${targetY})`
           }
 
@@ -1005,8 +978,7 @@ export class Controller {
             extractedContent: msg,
             includeInMemory: true,
           }
-        }
-        catch (e: any) {
+        } catch (e: any) {
           const errorMsg = `Failed to perform drag and drop: ${e.toString()}`
           logger.error(errorMsg)
           return {
@@ -1069,11 +1041,13 @@ export class Controller {
       name: 'select_cell_or_range',
       description: 'Google Sheets: Select a specific cell or range of cells',
       domains: ['sheets.google.com'],
-      paramSchema: z.string(),
+      paramSchema: z.object({
+        cellOrRange: z.string(),
+      }),
       requiredActionContext: {
         browser: true,
       },
-      execute: async (cellOrRange, { browser }) => {
+      execute: async ({ cellOrRange }, { browser }) => {
         return selectCellOrRange(browser, cellOrRange)
       },
     })
@@ -1082,11 +1056,13 @@ export class Controller {
       name: 'get_range_contents',
       description: 'Google Sheets: Get the contents of a specific cell or range of cells',
       domains: ['sheets.google.com'],
-      paramSchema: z.string(),
+      paramSchema: z.object({
+        cellOrRange: z.string(),
+      }),
       requiredActionContext: {
         browser: true,
       },
-      execute: async (cellOrRange, { browser }) => {
+      execute: async ({ cellOrRange }, { browser }) => {
         const page = await browser.getCurrentPage()
 
         await selectCellOrRange(browser, cellOrRange)
@@ -1130,8 +1106,10 @@ export class Controller {
       requiredActionContext: {
         browser: true,
       },
-      paramSchema: z.string(),
-      execute: async (text, { browser }) => {
+      paramSchema: z.object({
+        text: z.string(),
+      }),
+      execute: async ({ text }, { browser }) => {
         const page = await browser.getCurrentPage()
 
         await page.keyboard.type(text, { delay: 100 })
@@ -1222,14 +1200,11 @@ export class Controller {
           return new ActionResult({
             extractedContent: result,
           })
-        }
-        else if (result && typeof result === 'object') {
+        } else if (result && typeof result === 'object') {
           return new ActionResult(result)
-        }
-        else if (result === undefined || result === null) {
+        } else if (result === undefined || result === null) {
           return new ActionResult()
-        }
-        else {
+        } else {
           throw new Error(`Invalid action result type: ${typeof result} of ${result}`)
         }
       }
