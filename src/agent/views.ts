@@ -160,7 +160,7 @@ export class AgentSettings {
 
 export class AgentState {
   agentId: string
-  nStep: number
+  nSteps: number
   consecutiveFailures: number
   lastResult?: ActionResult[]
   history: AgentHistoryList
@@ -170,7 +170,7 @@ export class AgentState {
   messageManagerState: MessageManagerState
   constructor(data: Partial<AgentState> = {}) {
     this.agentId = data.agentId || uuidv4()
-    this.nStep = data.nStep ?? 1
+    this.nSteps = data.nSteps ?? 1
     this.consecutiveFailures = data.consecutiveFailures || 0
     this.lastResult = data.lastResult || []
     this.history = data.history || new AgentHistoryList({ history: [] })

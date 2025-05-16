@@ -1,11 +1,11 @@
 import { Browser } from '@/browser/browser'
 import { BrowserContext } from '@/browser/context'
-import { BrowserState } from '@/browser/view'
+import { BrowserState, BrowserStateHistory } from '@/browser/view'
 import { ActionModel, ActionPayload, ExecuteActions } from '@/controller/registry/view'
 import { Controller } from '@/controller/service'
 import { Logger } from '@/logger'
 import { ProductTelemetry } from '@/telemetry/service'
-import { AgentRunTelemetryEvent } from '@/telemetry/view'
+import { AgentEndTelemetryEvent, AgentRunTelemetryEvent } from '@/telemetry/view'
 import { checkEnvVariables, isSubset, sleep, timeExecutionAsync } from '@/utils'
 import { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { HumanMessage } from '@langchain/core/messages'
@@ -15,7 +15,8 @@ import { MemoryConfig } from './memory/views'
 import { MessageManager } from './message_manager/service'
 import { isModelWithoutToolSupport } from './message_manager/utils'
 import { SystemPrompt } from './prompt'
-import { ActionResult, AgentHistoryList, AgentOutput, AgentSettings, AgentState } from './views'
+import { ActionResult, AgentHistory, AgentHistoryList, AgentOutput, AgentSettings, AgentState, AgentStepInfo } from './views'
+import { createHistoryGif } from './gif'
 
 config()
 
@@ -623,6 +624,7 @@ export class Agent<Context = any> {
     }
   }
 
+  @timeExecutionAsync('--run (agent)')
   async run({
     maxSteps = 10,
     onStepStart,
@@ -633,15 +635,132 @@ export class Agent<Context = any> {
     onStepEnd?: AgentHook
   } = {}) {
     // TODO: signal pause/resume/stop
+
     await this.init()
     try {
       this.logAgentRun()
       if (this.initialActions.length) {
-
+        const result = await this.multiAct(this.initialActions, false)
+        this.state.lastResult = result
       }
-    } catch (error) {
+      let step = 0;
+      for (; step < maxSteps; step++) {
+        if (this.state.paused) {
+          // TODO: signal handler handle pause
+        }
 
+        if (this.state.consecutiveFailures >= this.settings.maxFailures) {
+          logger.error(`❌ Stopping due to ${this.settings.maxFailures} consecutive failures`)
+          break
+        }
+
+        if (this.state.stopped) {
+          logger.info('Agent stopped')
+          break
+        }
+
+        // TODO: signal handler
+				// while self.state.paused:
+				// 	await asyncio.sleep(0.2)  # Small delay to prevent CPU spinning
+				// 	if self.state.stopped:  # Allow stopping while paused
+				// 		break       
+
+        if (onStepStart) {
+          await onStepStart(this)
+        }
+
+        const stepInfo = new AgentStepInfo({
+          stepNumber: step,
+          maxSteps
+        })
+
+        await this.step(stepInfo)
+
+        if (onStepEnd) {
+          await onStepEnd(this)
+        }
+
+        if (this.state.history.isDone()) {
+          if (this.settings.validateOutput && step < maxSteps - 1) {
+            const isValid = await this.validateOutput()
+            if (!isValid) {
+              continue
+            }
+          }
+
+          await this.logCompletion()
+          break;
+        }
+      }
+
+      if (step === maxSteps) {
+        const errorMessage = 'Failed to complete task in maximum steps'
+        this.state.history.history.push(new AgentHistory({
+          modelOutput: undefined,
+          result: [new ActionResult({
+            error: errorMessage,
+            includeInMemory: true,
+          })],
+          state: new BrowserStateHistory({
+            url: '',
+            title: '',
+            tabs: [],
+            interactedElement: [],
+            screenshot: undefined,
+          }),
+          metadata: undefined
+        }))
+        logger.info(`❌ ${errorMessage}`)
+      }
+
+      return this.state.history
+
+    } catch (error) {
+      // TODO: signal handler KeyboardInterrupt
+    } finally {
+      // TODO: signal handler
+
+      this.telemetry.capture(new AgentEndTelemetryEvent({
+        agentId: this.state.agentId,
+        isDone: this.state.history.isDone(),
+        success: this.state.history.isSuccessful(),
+        steps: this.state.nSteps,
+        maxStepsReached: this.state.nSteps >= maxSteps,
+        errors: this.state.history.errors(),
+        totalDurationSeconds: this.state.history.totalDurationSeconds(),
+        totalInputTokens: this.state.history.totalInputTokens()
+      }))
+
+      // TODO: save playwright script
+
+
+      await this.close()
+
+      if (this.settings.generateGif) {
+        let outputPath = 'agent_history.gif'
+        if (typeof this.settings.generateGif === 'string') {
+          outputPath = this.settings.generateGif
+        }
+
+        createHistoryGif({
+          task: this.task,
+          history: this.state.history,
+          outputPath
+        })
+      }
     }
+  }
+  close() {
+    throw new Error('Method not implemented.')
+  }
+  logCompletion() {
+    throw new Error('Method not implemented.')
+  }
+  async validateOutput(): Promise<boolean> {
+    throw new Error('Method not implemented.')
+  }
+  step(stepInfo: AgentStepInfo) {
+    throw new Error('Method not implemented.')
   }
 
   @timeExecutionAsync('--multi-act (agent)')
@@ -743,3 +862,6 @@ export class Agent<Context = any> {
     }))
   }
 }
+
+
+
