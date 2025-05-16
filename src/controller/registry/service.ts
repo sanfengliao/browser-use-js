@@ -3,7 +3,7 @@ import type { BrowserContext } from '@/browser/context'
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { Page } from 'playwright'
 import type { ZodType } from 'zod'
-import type { RegisteredActionParams, RequiredActionContext } from './view'
+import type { ActionDependencies, RegisteredActionParams } from './view'
 import { ProductTelemetry } from '@/telemetry/service'
 import { ControllerRegisteredFunctionsTelemetryEvent } from '@/telemetry/view'
 import { z } from 'zod'
@@ -31,18 +31,18 @@ interface CreateActionSchemaParams {
 export class Registry<C = Context> {
   /** Service for registering and managing actions */
 
-  registry: ActionRegistry
+  registry: ActionRegistry<C>
   telemetry: ProductTelemetry
   excludeActions: string[]
 
   constructor(excludeActions?: string[]) {
-    this.registry = new ActionRegistry()
+    this.registry = new ActionRegistry<C>()
     this.telemetry = new ProductTelemetry()
     this.excludeActions = excludeActions || []
   }
 
-  registerAction<T extends ZodType, C extends RequiredActionContext>(
-    params: RegisteredActionParams<T, C>,
+  registerAction<T extends ZodType, D extends ActionDependencies>(
+    params: RegisteredActionParams<T, D, C>,
   ) {
     if (this.excludeActions.includes(params.name)) {
       return
@@ -76,18 +76,18 @@ export class Registry<C = Context> {
         this.replaceSensitiveData(validatedParams, sensitiveData)
       }
 
-      const requiredActionContext = action.requiredActionContext as RequiredActionContext
+      const actionDependencies = action.actionDependencies as ActionDependencies
 
-      if (requiredActionContext.browser && !browser) {
+      if (actionDependencies.browser && !browser) {
         throw new Error(`Action ${actionName} requires browser but none provided.`)
       }
-      if (requiredActionContext.pageExtractionLlm && !pageExtractionLlm) {
+      if (actionDependencies.pageExtractionLlm && !pageExtractionLlm) {
         throw new Error(`Action ${actionName} requires pageExtractionLlm but none provided.`)
       }
-      if (requiredActionContext.availableFilePaths && !availableFilePaths) {
+      if (actionDependencies.availableFilePaths && !availableFilePaths) {
         throw new Error(`Action ${actionName} requires availableFilePaths but none provided.`)
       }
-      if (requiredActionContext.context && !context) {
+      if (actionDependencies.context && !context) {
         throw new Error(`Action ${actionName} requires context but none provided.`)
       }
 
@@ -98,8 +98,7 @@ export class Registry<C = Context> {
         context,
         hasSensitiveData: !!sensitiveData,
       }))
-    }
-    catch (e) {
+    } catch (e) {
       throw new Error(`Error executing action ${actionName}: ${e instanceof Error ? e.message : String(e)}`)
     }
   }
@@ -121,19 +120,16 @@ export class Registry<C = Context> {
         for (const placeholder of matches) {
           if (sensitiveData[placeholder]) {
             result = result.replace(`<secret>${placeholder}</secret>`, sensitiveData[placeholder])
-          }
-          else {
+          } else {
             allMissingPlaceholders.add(placeholder)
           }
         }
 
         return result
-      }
-      else if (typeof value === 'object' && value !== null) {
+      } else if (typeof value === 'object' && value !== null) {
         if (Array.isArray(value)) {
           return value.map(replaceSecrets)
-        }
-        else {
+        } else {
           const result: Record<string, any> = {}
           for (const [k, v] of Object.entries(value)) {
             result[k] = replaceSecrets(v)

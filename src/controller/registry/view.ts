@@ -9,7 +9,7 @@ import { z } from 'zod'
 
 import { zodToJsonSchema } from 'zod-to-json-schema'
 
-export interface RequiredActionContext {
+export interface ActionDependencies {
   browser?: boolean
   pageExtractionLlm?: boolean
   availableFilePaths?: boolean
@@ -17,32 +17,32 @@ export interface RequiredActionContext {
   hasSensitiveData?: boolean
 }
 
-interface ActionContext {
+interface ActionDependencyContext<C> {
   browser: BrowserContext
   pageExtractionLlm: BaseChatModel
   availableFilePaths: string[]
-  context: any
+  context: C
   hasSensitiveData: boolean
 }
 
 type Falsy = false | 0 | -0 | 0n | '' | '' | `` | null | undefined | typeof Number.NaN
 
-type GetActionContext<T extends RequiredActionContext> = 0 extends (1 & T) ? Partial<ActionContext> : {
-  [K in keyof T]: T[K] extends Falsy ? undefined : K extends keyof ActionContext ? ActionContext[K] : never
+type GetActionContext<T extends ActionDependencies, C> = 0 extends (1 & T) ? Partial<ActionDependencyContext<C>> : {
+  [K in keyof T]: T[K] extends Falsy ? undefined : K extends keyof ActionDependencyContext<C> ? ActionDependencyContext<C>[K] : never
 }
 
-type B = GetActionContext<RequiredActionContext>
+// type B = GetActionContext<{ browser: true, context: true }, string>
 
-type ActionFunction<T extends ZodType = ZodType, C extends RequiredActionContext = any> = (params: z.infer<T>, ext: GetActionContext<C>) => string | Promise<string> | ActionResultData | Promise<ActionResultData>
+type ActionFunction<T extends ZodType = ZodType, D extends ActionDependencies = any, C = any> = (params: z.infer<T>, ext: GetActionContext<D, C>) => string | Promise<string> | ActionResultData | Promise<ActionResultData>
 
-export interface RegisteredActionParams<T extends ZodType = ZodType, C extends RequiredActionContext = RequiredActionContext> {
+export interface RegisteredActionParams<T extends ZodType = ZodType, D extends ActionDependencies = ActionDependencies, C = any> {
   name: string
   description: string
-  execute?: ActionFunction<T, C>
+  execute?: ActionFunction<T, D, C>
   paramSchema?: T
   domains?: string[] // e.g. ['*.google.com', 'www.bing.com', 'yahoo.*]
   pageFilter?: (page: Page) => boolean
-  requiredActionContext?: C
+  actionDependencies?: D
 }
 
 export type ActionParameters = any
@@ -100,25 +100,25 @@ export class ActionModel {
 
 export type ActionPayload = ExecuteActions | ActionModel
 
-export class RegisteredAction<T extends ZodType = ZodType, C extends RequiredActionContext = RequiredActionContext> {
+export class RegisteredAction<T extends ZodType = ZodType, D extends ActionDependencies = ActionDependencies, C = any> {
   /** Model for a registered action */
   paramSchema: T
   name: string
   description: string
-  execute: ActionFunction<T, C>
+  execute: ActionFunction<T, D, C>
   // filters: provide specific domains or a function to determine whether the action should be available on the given page or not
   domains?: string[] // e.g. ['*.google.com', 'www.bing.com', 'yahoo.*]
   pageFilter?: (page: Page) => boolean
-  requiredActionContext: C
+  actionDependencies: D
 
-  constructor(params: RegisteredActionParams<T, C>) {
+  constructor(params: RegisteredActionParams<T, D, C>) {
     this.name = params.name
     this.description = params.description
     this.execute = params.execute || (() => 'do nothing')
     this.domains = params.domains
     this.pageFilter = params.pageFilter
     this.paramSchema = params.paramSchema || z.object({}) as any
-    this.requiredActionContext = params.requiredActionContext || ({} as any)
+    this.actionDependencies = params.actionDependencies || ({} as any)
   }
 
   promptDescription(): string {
@@ -135,9 +135,9 @@ export interface GetPromptDescriptionParams {
   page?: Page
 }
 
-export class ActionRegistry {
+export class ActionRegistry<C> {
   /** Model representing the action registry */
-  actions: Record<string, RegisteredAction<z.ZodType, any>> = {}
+  actions: Record<string, RegisteredAction<z.ZodType, any, C>> = {}
 
   static matchDomains(domains: string[] | undefined, url: string): boolean {
     /**

@@ -235,7 +235,7 @@ describe('controllerIntegration', () => {
       paramSchema: z.object({
         text: z.string(),
       }),
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       execute: async (params, { browser }) => {

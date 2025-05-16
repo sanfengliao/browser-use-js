@@ -2,7 +2,7 @@ import type { BrowserContext } from '@/browser/context'
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { Page } from 'playwright'
 import type { ZodType } from 'zod'
-import type { ActionPayload, RegisteredActionParams, RequiredActionContext } from './registry/view'
+import type { ActionDependencies, ActionPayload, RegisteredActionParams } from './registry/view'
 import type { Position } from './view'
 import { ActionResult } from '@/agent/views'
 import { Logger } from '@/logger'
@@ -14,10 +14,10 @@ import { Registry } from './registry/service'
 const logger = Logger.getLogger(import.meta.url)
 
 export class Controller<Context = any> {
-  registry: Registry
+  registry: Registry<Context>
   constructor(params: { excludeActions?: string[] } = {}) {
     const { excludeActions = [] } = params
-    this.registry = new Registry(excludeActions)
+    this.registry = new Registry<Context>(excludeActions)
 
     this.registry.registerAction({
       name: 'done',
@@ -42,7 +42,7 @@ export class Controller<Context = any> {
       paramSchema: z.object({
         query: z.string(),
       }),
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       execute: async (params, { browser }) => {
@@ -64,7 +64,7 @@ export class Controller<Context = any> {
       paramSchema: z.object({
         url: z.string(),
       }),
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       execute: async (params, { browser }) => {
@@ -84,7 +84,7 @@ export class Controller<Context = any> {
       name: 'go_back',
       description: 'Go back',
       paramSchema: z.object({}),
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       execute: async (params, { browser }) => {
@@ -122,7 +122,7 @@ export class Controller<Context = any> {
         index: z.number(),
         xpath: z.string().optional(),
       }),
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       execute: async (params, { browser }) => {
@@ -186,7 +186,7 @@ export class Controller<Context = any> {
         text: z.string(),
         xpath: z.string().optional(),
       }),
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
         hasSensitiveData: true,
 
@@ -221,7 +221,7 @@ export class Controller<Context = any> {
     this.registry.registerAction({
       name: 'save_pdf',
       description: 'Save the current page as a PDF file',
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       execute: async (params, { browser }) => {
@@ -249,7 +249,7 @@ export class Controller<Context = any> {
       paramSchema: z.object({
         pageId: z.number(),
       }),
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       execute: async (params, { browser }) => {
@@ -274,7 +274,7 @@ export class Controller<Context = any> {
       paramSchema: z.object({
         url: z.string(),
       }),
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       execute: async (params, { browser }) => {
@@ -298,7 +298,7 @@ export class Controller<Context = any> {
       paramSchema: z.object({
         pageId: z.number(),
       }),
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       execute: async (params, { browser }) => {
@@ -324,7 +324,7 @@ export class Controller<Context = any> {
         goal: z.string(),
         shouldStripLinkUrls: z.boolean().optional(),
       }),
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
         pageExtractionLlm: true,
 
@@ -374,7 +374,7 @@ export class Controller<Context = any> {
       paramSchema: z.object({
         amount: z.number().optional(),
       }),
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       execute: async (params, { browser }) => {
@@ -403,7 +403,7 @@ export class Controller<Context = any> {
       paramSchema: z.object({
         amount: z.number().optional(),
       }),
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       execute: async (params, { browser }) => {
@@ -432,7 +432,7 @@ export class Controller<Context = any> {
       paramSchema: z.object({
         keys: z.string(),
       }),
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       execute: async (params, { browser }) => {
@@ -472,7 +472,7 @@ export class Controller<Context = any> {
       paramSchema: z.object({
         text: z.string(),
       }),
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       execute: async ({ text }, { browser }) => {
@@ -528,7 +528,7 @@ export class Controller<Context = any> {
       paramSchema: z.object({
         index: z.number(),
       }),
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       execute: async ({ index }, { browser }) => {
@@ -613,7 +613,7 @@ export class Controller<Context = any> {
         index: z.number(),
         text: z.string(),
       }),
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
 
       },
@@ -736,7 +736,7 @@ export class Controller<Context = any> {
         steps: z.number().optional().describe('Number of intermediate points for smoother movement (5-20 recommended)'),
         delayMs: z.number().optional().describe('Delay in milliseconds between steps (0 for fastest, 10-20 for more natural)'),
       }),
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       execute: async (params, { browser }) => {
@@ -994,7 +994,7 @@ export class Controller<Context = any> {
       name: 'get_sheet_contents',
       description: 'Google Sheets: Get the contents of the entire sheet',
       domains: ['sheets.google.com'],
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       execute: async (params, { browser }) => {
@@ -1044,7 +1044,7 @@ export class Controller<Context = any> {
       paramSchema: z.object({
         cellOrRange: z.string(),
       }),
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       execute: async ({ cellOrRange }, { browser }) => {
@@ -1059,7 +1059,7 @@ export class Controller<Context = any> {
       paramSchema: z.object({
         cellOrRange: z.string(),
       }),
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       execute: async ({ cellOrRange }, { browser }) => {
@@ -1084,7 +1084,7 @@ export class Controller<Context = any> {
       name: 'clear_selected_range',
       description: 'Google Sheets: Clear the currently selected cells',
       domains: ['sheets.google.com'],
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       execute: async (params, { browser }) => {
@@ -1103,7 +1103,7 @@ export class Controller<Context = any> {
       name: 'input_selected_cell_text',
       description: 'Google Sheets: Input text into the currently selected cell',
       domains: ['sheets.google.com'],
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       paramSchema: z.object({
@@ -1131,7 +1131,7 @@ export class Controller<Context = any> {
         range: z.string(),
         newContentsTsv: z.string(),
       }),
-      requiredActionContext: {
+      actionDependencies: {
         browser: true,
       },
       execute: async (params, { browser }) => {
@@ -1159,7 +1159,7 @@ export class Controller<Context = any> {
    * registering custom actions
    * @param params
    */
-  registerAction<T extends ZodType, C extends RequiredActionContext>(
+  registerAction<T extends ZodType, C extends ActionDependencies>(
     params: RegisteredActionParams<T, C>,
   ) {
     this.registry.registerAction(params)
@@ -1179,7 +1179,7 @@ export class Controller<Context = any> {
       pageExtractionLlm?: BaseChatModel
       sensitiveData?: Record<string, string>
       availableFilePaths?: string[]
-      context?: any
+      context?: Context
     },
   ): Promise<ActionResult> {
     for (const [actionName, params] of Object.entries(action)) {
