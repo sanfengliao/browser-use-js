@@ -404,3 +404,23 @@ export function checkEnvVariables(
     return keys.every(key => (process.env[key] || '').trim() !== '')
   }
 }
+
+/**
+ * Checks if setA is a subset of setB
+ * Similar to Python's set.issubset() method
+ *
+ * @param setA The set that might be a subset
+ * @param setB The set that might contain setA
+ * @returns True if every element in setA exists in setB
+ */
+export function isSubset<T>(setA: Set<T>, setB: Set<T>): boolean {
+  // A set A is a subset of a set B if all elements of A are also elements of B
+  for (const elem of setA) {
+    if (!setB.has(elem)) {
+      return false
+    }
+  }
+  return true
+}
+
+export const sleep = (second: number) => new Promise(resolve => setTimeout(resolve, second * 1000))

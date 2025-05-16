@@ -1,5 +1,5 @@
 import type { SelectorMap } from '@/dom/views'
-import type { BrowserContextOptions, ElementHandle, FrameLocator, Geolocation, HTTPCredentials, Page, Browser as PlaywrightBrowser, BrowserContext as PlaywrightBrowserContext, Request, Response } from 'playwright'
+import type { BrowserContextOptions, Cookie, ElementHandle, FrameLocator, Geolocation, HTTPCredentials, Page, Browser as PlaywrightBrowser, BrowserContext as PlaywrightBrowserContext, Request, Response } from 'playwright'
 
 import type { Browser } from './browser'
 import type { BrowserState } from './view'
@@ -644,11 +644,11 @@ export class BrowserContext {
     if (this.config.cookiesFile && fs.existsSync(this.config.cookiesFile)) {
       try {
         const fileContent = await fs.promises.readFile(this.config.cookiesFile, 'utf8')
-        const cookies = JSON.parse(fileContent)
+        const cookies: Cookie[] = JSON.parse(fileContent)
 
         const validSameSiteValues = ['Strict', 'Lax', 'None']
         for (const cookie of cookies) {
-          if ('sameSite' in cookie) {
+          if (cookie.sameSite) {
             if (!validSameSiteValues.includes(cookie.sameSite)) {
               logger.warn(
                 `Fixed invalid sameSite value '${cookie.sameSite}' to 'None' for cookie ${cookie.name}`,
@@ -1239,11 +1239,11 @@ export class BrowserContext {
     try {
       await this.removeHighlights()
       const domService = new DomService(page)
-      const content = await domService.getClickableElements(
-        this.config.highlightElements,
+      const content = await domService.getClickableElements({
+        highlightElements: this.config.highlightElements,
         focusElement,
-        this.config.viewportExpansion,
-      )
+        viewportExpansion: this.config.viewportExpansion,
+      })
 
       const tabsInfo = await this.getTabsInfo()
 
@@ -1563,7 +1563,7 @@ export class BrowserContext {
     // Start with the target element and collect all parents
     const parents: DOMElementNode[] = []
     let current = element
-    while (current.parent !== undefined) {
+    while (current.parent) {
       const parent = current.parent
       parents.push(parent)
       current = parent
@@ -1971,11 +1971,7 @@ export class BrowserContext {
   }
 
   /**
-   * Helper methods for easier access to the DOM
-   */
-
-  /**
-   * Get the selector map from the cached state
+   * Helper methods for easier access to the DOM Get the selector map from the cached state
    * @returns The current selector map or an empty object if no cached state exists
    */
   async getSelectorMap(): Promise<SelectorMap> {
@@ -2168,7 +2164,7 @@ export class BrowserContext {
    * Get all CDP targets directly using CDP protocol
    */
   private async getCdpTargets() {
-    if (!this.browser.config.cdpUrl && !this.session) {
+    if (!this.browser.config.cdpUrl || !this.session) {
       return []
     }
     try {
@@ -2231,11 +2227,9 @@ export class BrowserContext {
         // Fallback to using JavaScript
         try {
           await page.evaluate(
-            `
-          ({width, height}) => {
-            window.resizeTo(width, height);
-          }
-          `,
+            ({ width, height }) => {
+              window.resizeTo(width, height)
+            },
             {
               width: windowSize.width,
               height: windowSize.height + BROWSER_NAVBAR_HEIGHT, // Add height for browser chrome

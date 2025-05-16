@@ -1,7 +1,7 @@
 import antfu from '@antfu/eslint-config'
 
 export default antfu({
-  ignores: ['dist', 'src/**/buildDomTree.ts'],
+  ignores: ['dist', 'src/**/buildDomTree.js'],
   typescript: true,
   stylistic: true,
   jsonc: false,

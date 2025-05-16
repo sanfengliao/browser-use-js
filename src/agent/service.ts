@@ -1,11 +1,12 @@
 import { Browser } from '@/browser/browser'
 import { BrowserContext } from '@/browser/context'
 import { BrowserState } from '@/browser/view'
-import { ActionModel, ExecuteActions } from '@/controller/registry/view'
+import { ActionModel, ActionPayload, ExecuteActions } from '@/controller/registry/view'
 import { Controller } from '@/controller/service'
 import { Logger } from '@/logger'
 import { ProductTelemetry } from '@/telemetry/service'
-import { checkEnvVariables } from '@/utils'
+import { AgentRunTelemetryEvent } from '@/telemetry/view'
+import { checkEnvVariables, isSubset, sleep, timeExecutionAsync } from '@/utils'
 import { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { HumanMessage } from '@langchain/core/messages'
 import { config } from 'dotenv'
@@ -14,7 +15,7 @@ import { MemoryConfig } from './memory/views'
 import { MessageManager } from './message_manager/service'
 import { isModelWithoutToolSupport } from './message_manager/utils'
 import { SystemPrompt } from './prompt'
-import { AgentHistoryList, AgentOutput, AgentSettings, AgentState } from './views'
+import { ActionResult, AgentHistoryList, AgentOutput, AgentSettings, AgentState } from './views'
 
 config()
 
@@ -33,6 +34,8 @@ const REQUIRED_LLM_API_ENV_VARS = {
   ChatOllama: [],
   ChatGrok: ['GROK_API_KEY'],
 }
+
+export type AgentHook = (agent: Agent) => Promise<void>
 
 /**
  * Agent constructor parameters interface
@@ -185,7 +188,7 @@ export class Agent<Context = any> {
   private DoneActionModel!: typeof ActionModel
   private DoneAgentOutput!: typeof AgentOutput
   private unfilteredActions: string
-  private initialActions: any[] | null = null
+  private initialActions: ExecuteActions[]
 
   // Model information
   private modelName!: string
@@ -216,8 +219,8 @@ export class Agent<Context = any> {
   private telemetry: ProductTelemetry
 
   // Version information
-  // private version: string
-  // private source: string
+  private version: string = '1.0.0'
+  private source: string = 'browser-use'
 
   private isInitialized = false
 
@@ -323,6 +326,8 @@ export class Agent<Context = any> {
     // this._setBrowserUseVersionAndSource(source)
     if (initialActions) {
       this.initialActions = this.convertInitialActions(initialActions)
+    } else {
+      this.initialActions = []
     }
 
     // Model setup
@@ -616,5 +621,125 @@ export class Agent<Context = any> {
         throw e
       }
     }
+  }
+
+  async run({
+    maxSteps = 10,
+    onStepStart,
+    onStepEnd,
+  }: {
+    maxSteps?: number
+    onStepStart?: AgentHook
+    onStepEnd?: AgentHook
+  } = {}) {
+    // TODO: signal pause/resume/stop
+    await this.init()
+    try {
+      this.logAgentRun()
+      if (this.initialActions.length) {
+
+      }
+    } catch (error) {
+
+    }
+  }
+
+  @timeExecutionAsync('--multi-act (agent)')
+  async multiAct(actions: ActionPayload[], checkForNewElements = false) {
+    const results: ActionResult[] = []
+    const cachedSelectorMap = await this.browserContext.getSelectorMap()
+    const cachedPathHashes = new Set(Object.values(cachedSelectorMap).map(selector => selector.hash.branchPathHash))
+
+    await this.browserContext.removeHighlights()
+
+    for (const [i, action] of actions.entries()) {
+      if (action.getIndex() !== undefined && i !== 0) {
+        const newState = await this.browserContext.getState(true)
+        const newSelectorMap = newState.selectorMap
+
+        //  Detect index change after previous action
+        const originTarget = cachedSelectorMap[action.getIndex()]
+        const originTargetHash = originTarget?.hash.branchPathHash
+        const newTarget = newSelectorMap[action.getIndex()]
+        const newTargetHash = newTarget?.hash.branchPathHash
+        if (originTargetHash !== newTargetHash) {
+          const msg = `Element index changed after action ${i} / ${actions.length}, because page changed.`
+
+          logger.info(msg)
+          results.push(new ActionResult({
+            extractedContent: msg,
+            includeInMemory: true,
+          }))
+          break
+        }
+
+        const newPathHashes = new Set(Object.values(newSelectorMap).map(selector => selector.hash.branchPathHash))
+
+        if (checkForNewElements && !isSubset(newPathHashes, cachedPathHashes)) {
+          const msg = `Something new appeared after action ${i} / ${actions.length}.`
+          logger.info(msg)
+
+          results.push(new ActionResult({
+            extractedContent: msg,
+            includeInMemory: true,
+          }))
+        }
+      }
+
+      try {
+        await this.throwErrorIfStoppedOrPaused()
+        const result = await this.controller.act({
+          action,
+          browserContext: this.browserContext,
+          pageExtractionLlm: this.settings.pageExtractionLlm,
+          sensitiveData: this.sensitiveData,
+          availableFilePaths: this.settings.availableFilePaths,
+          context: this.context,
+        })
+        results.push(result)
+
+        logger.debug(`Executed action ${i + 1} / ${actions.length}`)
+        if (results[results.length - 1].isDone || results[results.length - 1].error || i === actions.length - 1) {
+          break
+        }
+
+        await sleep(this.browserContext.config.waitBetweenActions)
+      } catch (error) {
+        // TODO: handle cancel error
+      }
+    }
+    return results
+  }
+
+  /**
+   * Utility function that raises an InterruptedError if the agent is stopped or paused.
+   */
+  private async throwErrorIfStoppedOrPaused() {
+    if (this.registerExternalAgentStatusRaiseErrorCallback) {
+      const isThrow = await this.registerExternalAgentStatusRaiseErrorCallback()
+      if (isThrow) {
+        throw new Error('InterruptedError')
+      }
+    }
+
+    if (this.state.stopped || this.state.paused) {
+      throw new Error('InterruptedError')
+    }
+  }
+
+  /**
+   * Log the agent run
+   */
+  private logAgentRun() {
+    logger.info(`🚀 Starting task: ${this.task}`)
+    this.telemetry.capture(new AgentRunTelemetryEvent({
+      agentId: this.state.agentId,
+      useVision: this.settings.useVision,
+      task: this.task,
+      modelName: this.modelName,
+      chatModelLibrary: this.chatModelLibrary,
+      version: this.version,
+      source: this.source,
+    }))
   }
 }

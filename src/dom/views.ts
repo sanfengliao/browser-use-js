@@ -4,7 +4,7 @@ import { HistoryTreeProcessor } from './history_tree_processor/service'
 
 abstract class DOMBaseNode {
   isVisible: boolean
-  parent: DOMElementNode | undefined
+  parent?: DOMElementNode
 
   constructor(isVisible: boolean, parent?: DOMElementNode) {
     this.isVisible = isVisible
@@ -18,7 +18,7 @@ class DOMTextNode extends DOMBaseNode {
   text: string
   type: string
 
-  constructor(text: string, isVisible: boolean, parent?: DOMElementNode) {
+  constructor({ text, isVisible, parent }: { text: string, isVisible: boolean, parent?: DOMElementNode }) {
     super(isVisible, parent)
     this.text = text
     this.type = 'TEXT_NODE'

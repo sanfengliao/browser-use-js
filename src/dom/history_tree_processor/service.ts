@@ -68,7 +68,11 @@ export class HistoryTreeProcessor {
     const attributesHash = HistoryTreeProcessor.attributesHash(domHistoryElement.attributes)
     const xpathHash = HistoryTreeProcessor.xpathHash(domHistoryElement.xpath)
 
-    return new HashedDomElement(branchPathHash, attributesHash, xpathHash)
+    return {
+      branchPathHash,
+      attributesHash,
+      xpathHash,
+    }
   }
 
   static hashDomElement(domElement: DOMElementNode): HashedDomElement {
@@ -78,14 +82,19 @@ export class HistoryTreeProcessor {
     const xpathHash = HistoryTreeProcessor.xpathHash(domElement.xpath)
     // const textHash = HistoryTreeProcessor._textHash(domElement);
 
-    return new HashedDomElement(branchPathHash, attributesHash, xpathHash)
+    return {
+      branchPathHash,
+      attributesHash,
+      xpathHash,
+      // textHash,
+    }
   }
 
   private static getParentBranchPath(domElement: DOMElementNode): string[] {
     const parents: DOMElementNode[] = []
     let currentElement: DOMElementNode = domElement
 
-    while (currentElement.parent !== undefined) {
+    while (currentElement.parent) {
       parents.push(currentElement)
       currentElement = currentElement.parent
     }

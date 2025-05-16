@@ -29,9 +29,16 @@ export class DomService {
   // region - Clickable elements
   @timeExecutionAsync('--get_clickable_elements')
   async getClickableElements(
-    highlightElements: boolean = true,
-    focusElement: number = -1,
-    viewportExpansion: number = 0,
+    {
+      highlightElements = true,
+      focusElement = -1,
+      viewportExpansion = 0,
+    }: {
+      highlightElements?: boolean
+      focusElement?: number
+      viewportExpansion?: number
+    } = {},
+
   ): Promise<DOMState> {
     const [elementTree, selectorMap] = await this.buildDomTree(highlightElements, focusElement, viewportExpansion)
     return {
@@ -138,13 +145,13 @@ export class DomService {
 
     for (const [id, nodeData] of Object.entries<any>(jsNodeMap)) {
       const [node, childrenIds] = this.parseNode(nodeData)
-      if (node === undefined) {
+      if (!node) {
         continue
       }
 
       nodeMap[id] = node
 
-      if (node instanceof DOMElementNode && node.highlightIndex !== undefined) {
+      if (node instanceof DOMElementNode && node.highlightIndex) {
         selectorMap[node.highlightIndex] = node
       }
 
@@ -166,7 +173,7 @@ export class DomService {
 
     const htmlToDict = nodeMap[String(jsRootId)]
 
-    if (htmlToDict === undefined || !(htmlToDict instanceof DOMElementNode)) {
+    if (!htmlToDict || !(htmlToDict instanceof DOMElementNode)) {
       throw new Error('Failed to parse HTML to dictionary')
     }
 
@@ -183,9 +190,10 @@ export class DomService {
     // Process text nodes immediately
     if (nodeData.type === 'TEXT_NODE') {
       const textNode = new DOMTextNode(
-        nodeData.text,
-        nodeData.isVisible,
-        undefined,
+        {
+          text: nodeData.text,
+          isVisible: nodeData.isVisible,
+        },
       )
       return [textNode, []]
     }

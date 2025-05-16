@@ -98,6 +98,8 @@ export class ActionModel {
   }
 }
 
+export type ActionPayload = ExecuteActions | ActionModel
+
 export class RegisteredAction<T extends ZodType = ZodType, C extends RequiredActionContext = RequiredActionContext> {
   /** Model for a registered action */
   paramSchema: T
@@ -173,8 +175,7 @@ export class ActionRegistry {
         }
       }
       return false
-    }
-    catch (e) {
+    } catch (e) {
       return false
     }
   }

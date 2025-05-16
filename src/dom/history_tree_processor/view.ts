@@ -1,21 +1,10 @@
 /**
  * Hash of the dom element to be used as a unique identifier
  */
-class HashedDomElement {
+interface HashedDomElement {
   branchPathHash: string
   attributesHash: string
   xpathHash: string
-  // textHash: string;
-
-  constructor(
-    branchPathHash: string,
-    attributesHash: string,
-    xpathHash: string,
-  ) {
-    this.branchPathHash = branchPathHash
-    this.attributesHash = attributesHash
-    this.xpathHash = xpathHash
-  }
 }
 
 interface Coordinates {

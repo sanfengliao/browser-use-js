@@ -2,7 +2,7 @@ import type { BrowserContext } from '@/browser/context'
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { Page } from 'playwright'
 import type { ZodType } from 'zod'
-import type { ActionModel, ExecuteActions, RegisteredActionParams, RequiredActionContext } from './registry/view'
+import type { ActionPayload, RegisteredActionParams, RequiredActionContext } from './registry/view'
 import type { Position } from './view'
 import { ActionResult } from '@/agent/views'
 import { Logger } from '@/logger'
@@ -1174,7 +1174,7 @@ export class Controller<Context = any> {
       availableFilePaths,
       context,
     }: {
-      action: ActionModel | ExecuteActions
+      action: ActionPayload
       browserContext: BrowserContext
       pageExtractionLlm?: BaseChatModel
       sensitiveData?: Record<string, string>
