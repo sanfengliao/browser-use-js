@@ -217,12 +217,12 @@ export class MessageManager {
       useVision: boolean
     },
   ): void {
-  // If there are results that should be kept in memory,
-  // add them directly to history and then add state without result
+    // If there are results that should be kept in memory,
+    // add them directly to history and then add state without result
     if (result) {
       for (const r of result) {
         if (r.includeInMemory) {
-        // Add extracted content if available
+          // Add extracted content if available
           if (r.extractedContent) {
             const msg = new HumanMessage(`Action result: ${String(r.extractedContent)}`)
             this.addMessageWithTokens({
@@ -232,7 +232,7 @@ export class MessageManager {
 
           // Add error info if available
           if (r.error) {
-          // Remove trailing newline if present
+            // Remove trailing newline if present
             let errorText = r.error
             if (errorText.endsWith('\n')) {
               errorText = errorText.slice(0, -1)
@@ -289,7 +289,7 @@ export class MessageManager {
    * @param modelOutput The agent output to add to the conversation
    */
   public addModelOutput(modelOutput: AgentOutput): void {
-  // Create tool call structure
+    // Create tool call structure
     const toolCalls: ToolCall[] = [
       {
         name: 'AgentOutput',
@@ -323,7 +323,7 @@ export class MessageManager {
    * @param plan The plan text to add, or null if no plan
    * @param position Optional position to insert the message in the history
    */
-  public addPlan(plan: string | null, position?: number): void {
+  public addPlan({ plan, position }: { plan?: string, position?: number } = {}): void {
     if (plan) {
       const msg = new AIMessage(plan)
       this.addMessageWithTokens({
@@ -339,7 +339,7 @@ export class MessageManager {
    * @returns List of base messages ready for the LLM
    */
   public getMessages(): BaseMessage[] {
-  // Extract actual message objects from managed message wrappers
+    // Extract actual message objects from managed message wrappers
     const messages = this.state.history.messages.map(m => m.message)
 
     // Debug which messages are in history with token count
@@ -360,7 +360,7 @@ export class MessageManager {
    * Add message with token count metadata
    * position: None for last, -1 for second last, etc.
    */
-  private addMessageWithTokens({
+  addMessageWithTokens({
     message,
     position,
     messageType,
@@ -427,9 +427,8 @@ export class MessageManager {
     // Handle string content
     if (typeof filteredMessage.content === 'string') {
       filteredMessage.content = replaceSensitive(filteredMessage.content)
-    }
-    // Handle array content (multimodal messages)
-    else if (Array.isArray(filteredMessage.content)) {
+    } else if (Array.isArray(filteredMessage.content)) {
+      // Handle array content (multimodal messages)
       filteredMessage.content = filteredMessage.content.map((item) => {
         if (typeof item === 'object' && item !== null && 'text' in item) {
           return {
@@ -456,13 +455,11 @@ export class MessageManager {
       for (const item of message.content) {
         if ('image_url' in item) {
           count += this.settings.imageTokens
-        }
-        else if (typeof item === 'object' && item !== null && 'text' in item) {
+        } else if (typeof item === 'object' && item !== null && 'text' in item) {
           count += this.countTextTokens(item.text)
         }
       }
-    }
-    else {
+    } else {
       let msg = message.content
       if ('tool_calls' in message) {
         msg += JSON.stringify(message.tool_calls)
@@ -485,7 +482,7 @@ export class MessageManager {
    * Returns the result of trimming (null if no trimming was needed)
    */
   public cutMessages() {
-  // Calculate how many tokens we need to remove
+    // Calculate how many tokens we need to remove
     let diff = this.state.history.currentTokens - this.settings.maxInputTokens
 
     // If we're under the limit, no need to trim
@@ -519,8 +516,7 @@ export class MessageManager {
             `Removed image with ${this.settings.imageTokens} tokens - total tokens now: `
             + `${this.state.history.currentTokens}/${this.settings.maxInputTokens}`,
           )
-        }
-        else if ('text' in item && typeof item === 'object') {
+        } else if ('text' in item && typeof item === 'object') {
           text += item.text
         }
       }

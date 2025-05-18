@@ -203,7 +203,7 @@ export class Registry<C = Context> {
     const schema = this.createActionSchema(params)
 
     return class extends ActionModel {
-      schema = schema
+      static schema = schema
     }
   }
 

@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { Browser } from '@/browser/browser'
 import { BrowserContext } from '@/browser/context'
 import { BrowserState, BrowserStateHistory } from '@/browser/view'
@@ -5,18 +6,19 @@ import { ActionModel, ActionPayload, ExecuteActions } from '@/controller/registr
 import { Controller } from '@/controller/service'
 import { Logger } from '@/logger'
 import { ProductTelemetry } from '@/telemetry/service'
-import { AgentEndTelemetryEvent, AgentRunTelemetryEvent } from '@/telemetry/view'
-import { checkEnvVariables, isSubset, sleep, timeExecutionAsync } from '@/utils'
+import { AgentEndTelemetryEvent, AgentRunTelemetryEvent, AgentStepTelemetryEvent } from '@/telemetry/view'
+import { checkEnvVariables, InterruptedError, isSubset, sleep, timeExecutionAsync } from '@/utils'
 import { BaseChatModel } from '@langchain/core/language_models/chat_models'
-import { HumanMessage } from '@langchain/core/messages'
+import { BaseMessage, HumanMessage } from '@langchain/core/messages'
 import { config } from 'dotenv'
+import { Page } from 'playwright'
+import { createHistoryGif } from './gif'
 import { Memory } from './memory/service'
 import { MemoryConfig } from './memory/views'
 import { MessageManager } from './message_manager/service'
-import { isModelWithoutToolSupport } from './message_manager/utils'
+import { isModelWithoutToolSupport, saveConversation } from './message_manager/utils'
 import { SystemPrompt } from './prompt'
-import { ActionResult, AgentHistory, AgentHistoryList, AgentOutput, AgentSettings, AgentState, AgentStepInfo } from './views'
-import { createHistoryGif } from './gif'
+import { ActionResult, AgentHistory, AgentHistoryList, AgentOutput, AgentSettings, AgentState, AgentStepInfo, StepMetadata } from './views'
 
 config()
 
@@ -509,8 +511,7 @@ export class Agent<Context = any> {
   }
 
   private setModelNames() {
-    // @ts-expect-error
-    this.chatModelLibrary = this.llm.constructor.lc_name()
+    this.chatModelLibrary = (this.llm.constructor as typeof BaseChatModel).lc_name()
     // @ts-expect-error
     this.modelName = this.llm.model || this.llm.modelName || 'Unknown'
     // @ts-expect-error
@@ -573,8 +574,8 @@ export class Agent<Context = any> {
     logger.debug(`Verifying the ${this.llm.constructor.name} LLM knows the capital of France...`)
 
     if ((this.llm as any)._verifiedApiKeys === true || SKIP_LLM_API_KEY_VERIFICATION) {
-    // skip roundtrip connection test for speed in cloud environment
-    // If the LLM API keys have already been verified during a previous run, skip the test
+      // skip roundtrip connection test for speed in cloud environment
+      // If the LLM API keys have already been verified during a previous run, skip the test
       (this.llm as any)._verifiedApiKeys = true
       return true
     }
@@ -592,7 +593,7 @@ export class Agent<Context = any> {
     const testPrompt = 'What is the capital of France? Respond with a single word.'
     const testAnswer = 'paris'
     try {
-    // dont convert this to async! it *should* block any subsequent llm calls from running
+      // dont convert this to async! it *should* block any subsequent llm calls from running
       const response = await this.llm.invoke([new HumanMessage(testPrompt)])
       const responseText = String(response.content).toLowerCase()
 
@@ -643,7 +644,7 @@ export class Agent<Context = any> {
         const result = await this.multiAct(this.initialActions, false)
         this.state.lastResult = result
       }
-      let step = 0;
+      let step = 0
       for (; step < maxSteps; step++) {
         if (this.state.paused) {
           // TODO: signal handler handle pause
@@ -660,10 +661,10 @@ export class Agent<Context = any> {
         }
 
         // TODO: signal handler
-				// while self.state.paused:
-				// 	await asyncio.sleep(0.2)  # Small delay to prevent CPU spinning
-				// 	if self.state.stopped:  # Allow stopping while paused
-				// 		break       
+        // while self.state.paused:
+        //   await asyncio.sleep(0.2)  # Small delay to prevent CPU spinning
+        //   if self.state.stopped:  # Allow stopping while paused
+        //     break
 
         if (onStepStart) {
           await onStepStart(this)
@@ -671,7 +672,7 @@ export class Agent<Context = any> {
 
         const stepInfo = new AgentStepInfo({
           stepNumber: step,
-          maxSteps
+          maxSteps,
         })
 
         await this.step(stepInfo)
@@ -689,7 +690,7 @@ export class Agent<Context = any> {
           }
 
           await this.logCompletion()
-          break;
+          break
         }
       }
 
@@ -708,13 +709,12 @@ export class Agent<Context = any> {
             interactedElement: [],
             screenshot: undefined,
           }),
-          metadata: undefined
+          metadata: undefined,
         }))
         logger.info(`❌ ${errorMessage}`)
       }
 
       return this.state.history
-
     } catch (error) {
       // TODO: signal handler KeyboardInterrupt
     } finally {
@@ -728,11 +728,10 @@ export class Agent<Context = any> {
         maxStepsReached: this.state.nSteps >= maxSteps,
         errors: this.state.history.errors(),
         totalDurationSeconds: this.state.history.totalDurationSeconds(),
-        totalInputTokens: this.state.history.totalInputTokens()
+        totalInputTokens: this.state.history.totalInputTokens(),
       }))
 
       // TODO: save playwright script
-
 
       await this.close()
 
@@ -745,21 +744,241 @@ export class Agent<Context = any> {
         createHistoryGif({
           task: this.task,
           history: this.state.history,
-          outputPath
+          outputPath,
         })
       }
     }
   }
+
   close() {
     throw new Error('Method not implemented.')
   }
+
   logCompletion() {
     throw new Error('Method not implemented.')
   }
+
   async validateOutput(): Promise<boolean> {
     throw new Error('Method not implemented.')
   }
-  step(stepInfo: AgentStepInfo) {
+
+  async step(stepInfo: AgentStepInfo) {
+    logger.info(`📍 Step ${this.state.nSteps}`)
+    let state: BrowserState | undefined
+    let modelOutput!: AgentOutput
+    let result: ActionResult[] = []
+    const stepStartTime = Date.now()
+    let tokens = 0
+    try {
+      state = await this.browserContext.getState(true)
+      const currentPage = await this.browserContext.getCurrentPage()
+
+      if (this.enableMemory && this.memory && this.state.nSteps % this.memory.config.memoryInterval === 0) {
+        this.memory.createProceduralMemory(this.state.nSteps)
+      }
+
+      await this.throwErrorIfStoppedOrPaused()
+
+      // Update action models with page-specific actions
+      await this.updateActionModelsForPage(currentPage)
+
+      // Get page-specific filtered actions
+      const pageFilterActions = this.controller.registry.getPromptDescription(currentPage)
+      if (pageFilterActions) {
+        const pageActionMessage = `For this page, these additional actions are available:\n${pageFilterActions}`
+        this.messageManager.addMessageWithTokens({
+          message: new HumanMessage(pageActionMessage),
+        })
+      }
+
+      // If using raw tool calling method, we need to update the message context with new actions
+      if (this.toolCallingMethod === 'raw') {
+        // For raw tool calling, get all non-filtered actions plus the page-filtered ones
+        const allUnfilteredActions = this.controller.registry.getPromptDescription()
+        let allActions = allUnfilteredActions
+        if (pageFilterActions) {
+          allActions += `\n${pageFilterActions}`
+        }
+        const contextLines = (this.messageManager.settings.messageContext || '').split('\n')
+        const nonActionLines = contextLines.filter(line => !line.startsWith('Available actions:'))
+        let updateContext = nonActionLines.join('\n')
+        if (updateContext) {
+          updateContext += `\n\nAvailable actions: ${allActions}`
+        } else {
+          updateContext = `Available actions: ${allActions}`
+        }
+        this.messageManager.settings.messageContext = updateContext
+      }
+
+      this.messageManager.addStateMessage({
+        state,
+        result: this.state.lastResult,
+        stepInfo,
+        useVision: this.settings.useVision,
+      })
+
+      // Run planner at specified intervals if planner is configured
+      if (this.settings.plannerLlm && this.state.nSteps % this.settings.plannerInterval === 0) {
+        const plan = await this.runPlanner()
+        // add plan before last state message
+        this.messageManager.addPlan({
+          plan,
+          position: -1,
+        })
+      }
+
+      if (stepInfo && stepInfo.isLastStep()) {
+        // Add last step warning if needed
+        let msg = 'Now comes your last step. Use only the "done" action now. No other actions - so here your action sequence must have length 1.'
+        msg += '\nIf the task is not yet fully finished as requested by the user, set success in "done" to false! E.g. if not all steps are fully completed.'
+        msg += '\nIf the task is fully finished, set success in "done" to true.'
+        msg += '\nInclude everything you found out for the ultimate task in the done text.'
+        logger.info('last step finishing up')
+        this.messageManager.addMessageWithTokens({
+          message: new HumanMessage(msg),
+        })
+        this.AgentOutput = this.DoneAgentOutput
+      }
+
+      const inputMessages = this.messageManager.getMessages()
+      tokens = this.messageManager.state.history.currentTokens
+
+      try {
+        modelOutput = await this.getNextAction(inputMessages)
+        if (!Array.isArray(modelOutput.action) || modelOutput.action.every(action => Object.keys(action).length === 0)) {
+          logger.warn('Model returned empty action. Retrying...')
+          const clarificationMessage = new HumanMessage({
+            content: 'You forgot to return an action. Please respond only with a valid JSON action according to the expected format.',
+          })
+
+          const retryMessages = [...inputMessages, clarificationMessage]
+          modelOutput = await this.getNextAction(retryMessages)
+
+          if (!Array.isArray(modelOutput.action) || modelOutput.action.every(action => Object.keys(action).length === 0)) {
+            logger.warn('Model still returned empty after retry. Inserting safe noop action.')
+            const action = new this.ActionModel({
+              done: {
+                success: false,
+                text: 'No next action returned by LLM!',
+              },
+            })
+            modelOutput.action = [action]
+          }
+        }
+        this.throwErrorIfStoppedOrPaused()
+
+        this.state.nSteps += 1
+
+        if (this.registerNewStepCallback) {
+          await Promise.resolve(this.registerNewStepCallback(state, modelOutput, this.state.nSteps))
+        }
+
+        if (this.settings.saveConversationPath) {
+          const target = `${this.settings.saveConversationPath}_${this.state.nSteps}.txt`
+          saveConversation({
+            inputMessages,
+            response: modelOutput,
+            target,
+            encoding: this.settings.saveConversationPathEncoding,
+          })
+        }
+
+        this.messageManager.removeLastStateMessage()
+
+        await this.throwErrorIfStoppedOrPaused()
+
+        this.messageManager.addModelOutput(modelOutput)
+      } catch (error) {
+        // TODO: handle error
+        this.messageManager.removeLastStateMessage()
+      }
+
+      result = await this.multiAct(modelOutput.action)
+
+      this.state.lastResult = result
+
+      if (result.length > 0 && result[result.length - 1].isDone) {
+        logger.info(`Result: ${result[result.length - 1].extractedContent}`)
+      }
+
+      this.state.consecutiveFailures = 0
+    } catch (error) {
+      // TODO: handle error
+      if (error instanceof InterruptedError) {
+        this.state.lastResult = [new ActionResult({
+          error: 'The agent was paused mid-step - the last action might need to be repeated',
+          includeInMemory: false,
+        })]
+      } else {
+        result = this.handleStepError(error)
+        this.state.lastResult = result
+      }
+    } finally {
+      const stepEndTime = Date.now()
+
+      const actions = (modelOutput.action || []).map(action => ({ ...action }))
+
+      this.telemetry.capture(new AgentStepTelemetryEvent({
+        agentId: this.state.agentId,
+        step: this.state.nSteps,
+        actions,
+        consecutiveFailures: this.state.consecutiveFailures,
+        stepError: result.length > 0 ? result.map(r => r.error).filter(Boolean) as string[] : ['No result'],
+
+      }))
+
+      if (result.length <= 0) {
+        return
+      }
+
+      if (state) {
+        const metaData = new StepMetadata({
+          stepNumber: this.state.nSteps,
+          stepStartTime,
+          stepEndTime,
+          inputTokens: tokens,
+        })
+        this.makeHistoryItem({
+          modelOutput,
+          state,
+          result,
+          metaData,
+        })
+      }
+    }
+  }
+
+  makeHistoryItem(arg0: { modelOutput: AgentOutput, state: BrowserState, result: ActionResult[], metaData: StepMetadata }) {
+    throw new Error('Method not implemented.')
+  }
+
+  handleStepError(error: unknown): ActionResult[] {
+    throw new Error(`Method not implemented.${error}`)
+  }
+
+  updateActionModelsForPage(page: Page) {
+    // Create new action model with current page's filtered actions
+    this.ActionModel = this.controller.registry.createActionModel({
+      page,
+    })
+
+    // Update output model with the new actions
+    this.AgentOutput = AgentOutput.typeWithCustomActions(this.ActionModel)
+
+    // Update done action model too
+    this.DoneActionModel = this.controller.registry.createActionModel({
+      page,
+      includeActions: ['done'],
+    })
+
+    this.DoneAgentOutput = AgentOutput.typeWithCustomActions(this.DoneActionModel)
+  }
+
+  getNextAction(inputMessages: BaseMessage[]): AgentOutput {
+    throw new Error('Method not implemented.')
+  }
+
+  async runPlanner(): Promise<string | undefined> {
     throw new Error('Method not implemented.')
   }
 
@@ -862,6 +1081,3 @@ export class Agent<Context = any> {
     }))
   }
 }
-
-
-

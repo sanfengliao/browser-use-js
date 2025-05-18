@@ -14,5 +14,6 @@ export default antfu({
     'jsdoc/check-param-names': 'off',
     'ts/consistent-type-imports': 'off',
     'style/brace-style': ['error', '1tbs', { allowSingleLine: true }],
+    'no-unsafe-finally': 'off',
   },
 })

@@ -424,3 +424,16 @@ export function isSubset<T>(setA: Set<T>, setB: Set<T>): boolean {
 }
 
 export const sleep = (second: number) => new Promise(resolve => setTimeout(resolve, second * 1000))
+
+
+
+export class InterruptedError extends Error {
+  constructor(message?: string) {
+    super(message);
+    this.name = "InterruptedError";
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, InterruptedError);
+    }
+  }
+}

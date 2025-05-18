@@ -1,6 +1,7 @@
 import { AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
 import fs from 'fs';
 import path from 'path';
+import { AgentOutput } from '../views';
 
 
 /**
@@ -172,10 +173,17 @@ function mergeSuccessiveMessages(messages: BaseMessage[], ClassToMerge: typeof B
  * @param encoding Optional encoding for the file
  */
 export function saveConversation(
-  inputMessages: BaseMessage[],
-  response: any,
-  target: string,
-  encoding: string | null = null
+  {
+    inputMessages,
+    response,
+    target,
+    encoding
+  }: {
+    inputMessages: BaseMessage[],
+    response: AgentOutput,
+    target: string,
+    encoding?: string
+  }
 ): void {
   // create folders if not exists
   const dirname = path.dirname(target);
@@ -204,7 +212,7 @@ export function saveConversation(
  */
 function writeMessagesToFile(f: fs.WriteStream, messages: BaseMessage[]): void {
   for (const message of messages) {
-    f.write(` ${message.constructor.name} \n`);
+    f.write(` ${(message.constructor as typeof BaseMessage).lc_name()} \n`);
 
     if (Array.isArray(message.content)) {
       for (const item of message.content) {
@@ -217,7 +225,6 @@ function writeMessagesToFile(f: fs.WriteStream, messages: BaseMessage[]): void {
         const content = JSON.parse(message.content);
         f.write(JSON.stringify(content, null, 2) + '\n');
       } catch (e) {
-        if (!(e instanceof SyntaxError)) throw e;
         f.write(message.content.trim() + '\n');
       }
     }
@@ -232,14 +239,8 @@ function writeMessagesToFile(f: fs.WriteStream, messages: BaseMessage[]): void {
  * @param f File stream to write to
  * @param response Response to write
  */
-function writeResponseToFile(f: fs.WriteStream, response: any): void {
+function writeResponseToFile(f: fs.WriteStream, response: AgentOutput): void {
   f.write(' RESPONSE\n');
-
-  // Convert response to JSON excluding undefined values
-  const serialized = JSON.stringify(response, (key, value) =>
-    value === undefined ? undefined : value
-  );
-
   // Format JSON string with indentation
-  f.write(JSON.stringify(JSON.parse(serialized), null, 2));
+  f.write(JSON.stringify(response, null, 2));
 }

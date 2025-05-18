@@ -285,6 +285,8 @@ export interface AgentBrain {
  * that are not in this model as provided by the linter, as long as they are registered in the DynamicActions model.
  */
 export class AgentOutput {
+
+  static ActionModelClass = ActionModel
   /**
    * Current state of the agent
    */
@@ -296,6 +298,7 @@ export class AgentOutput {
 
   action: ActionModel[]
 
+
   /**
    * Create a new AgentOutput instance
    */
@@ -304,11 +307,14 @@ export class AgentOutput {
     action: (ActionModel | ExecuteActions)[]
   }) {
     this.currentState = data.currentState
+
+    const ActionModelClass = (this.constructor as typeof AgentOutput).ActionModelClass
+
     this.action = data.action.map((action) => {
       if (action instanceof ActionModel) {
         return action
       } else {
-        return new ActionModel(action)
+        return new ActionModelClass(action)
       }
     })
   }
@@ -329,13 +335,7 @@ export class AgentOutput {
    */
   static typeWithCustomActions<T extends typeof ActionModel>(CustomActionModel: T) {
     class ExtendedAgentOutput extends AgentOutput {
-      declare action: InstanceType<T>[]
-      constructor(data: {
-        currentState: AgentBrain
-        action: InstanceType<T>[]
-      }) {
-        super(data)
-      }
+      static ActionModelClass = CustomActionModel
     }
 
     return ExtendedAgentOutput

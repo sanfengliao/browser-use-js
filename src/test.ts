@@ -1,22 +1,15 @@
-class A {
-  a?: number
-  constructor() {
+let a = [1, 2, 3, 4, 5]
 
+for (const value of a) {
+  if (value === 3) {
+    a = undefined
   }
-
-  getA() {
-    return this.a
-  }
+  console.log(value)
 }
 
-class B extends A {
-  a = 1
-  constructor() {
-    super()
-  }
-}
-console.log(Object.keys(new A()))
-console.log({ ...new A() })
-console.log(JSON.stringify(new A()))
+console.log(a)
+// for (const [index, value] of a.entries()) {
+//   console.log(index, value)
+// }
 
-console.log(new B().getA())
+console.log(JSON.stringify({ a: undefined, b: { c: 1 } }, null, 2))

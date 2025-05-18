@@ -50,15 +50,17 @@ export type ActionParameters = any
 export interface ExecuteActions {
   [actionName: string]: ActionParameters
 }
+
 /**
  * Base model for dynamically created action models
  */
 export class ActionModel {
   [actionName: string]: ActionParameters
-  schema?: z.ZodType
+  static schema?: z.ZodType
   constructor(params: ExecuteActions) {
-    if (this.schema) {
-      params = this.schema.parse(params)
+    const schema = (this.constructor as typeof ActionModel).schema
+    if (schema) {
+      params = schema.parse(params)
     }
     Object.assign(this, params)
   }
@@ -124,10 +126,7 @@ export class RegisteredAction<T extends ZodType = ZodType, D extends ActionDepen
   promptDescription(): string {
     /** Get a description of the action for the prompt */
     return `${this.description}:
-      {
-        "${this.name}": ${JSON.stringify(zodToJsonSchema(this.paramSchema))},
-      }
-    `
+      {"${this.name}": ${JSON.stringify(zodToJsonSchema(this.paramSchema))}}`
   }
 }
 
@@ -205,7 +204,7 @@ export class ActionRegistry<C> {
     if (!page) {
       // For system prompt (no page provided), include only actions with no filters
       return Object.values(this.actions)
-        .filter(action => action.pageFilter === undefined && action.domains === undefined)
+        .filter(action => !action.pageFilter && !action.domains)
         .map(action => action.promptDescription())
         .join('\n')
     }
