@@ -427,13 +427,4 @@ export const sleep = (second: number) => new Promise(resolve => setTimeout(resol
 
 
 
-export class InterruptedError extends Error {
-  constructor(message?: string) {
-    super(message);
-    this.name = "InterruptedError";
 
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, InterruptedError);
-    }
-  }
-}

@@ -7,9 +7,9 @@ import { Controller } from '@/controller/service'
 import { Logger } from '@/logger'
 import { ProductTelemetry } from '@/telemetry/service'
 import { AgentEndTelemetryEvent, AgentRunTelemetryEvent, AgentStepTelemetryEvent } from '@/telemetry/view'
-import { checkEnvVariables, InterruptedError, isSubset, sleep, timeExecutionAsync } from '@/utils'
+import { checkEnvVariables, isSubset, sleep, timeExecutionAsync } from '@/utils'
 import { BaseChatModel } from '@langchain/core/language_models/chat_models'
-import { BaseMessage, HumanMessage } from '@langchain/core/messages'
+import { AIMessageChunk, BaseMessage, HumanMessage } from '@langchain/core/messages'
 import { config } from 'dotenv'
 import { Page } from 'playwright'
 import { createHistoryGif } from './gif'
@@ -17,8 +17,9 @@ import { Memory } from './memory/service'
 import { MemoryConfig } from './memory/views'
 import { MessageManager } from './message_manager/service'
 import { isModelWithoutToolSupport, saveConversation } from './message_manager/utils'
-import { SystemPrompt } from './prompt'
+import { PlannerPrompt, SystemPrompt } from './prompt'
 import { ActionResult, AgentHistory, AgentHistoryList, AgentOutput, AgentSettings, AgentState, AgentStepInfo, StepMetadata } from './views'
+import { InterruptedError, LLMException } from '@/error'
 
 config()
 
@@ -979,6 +980,72 @@ export class Agent<Context = any> {
   }
 
   async runPlanner(): Promise<string | undefined> {
+    // Skip planning if no planner_llm is set
+    if (!this.settings.plannerLlm) {
+      return undefined
+    }
+
+    // Get current state to filter actions by page
+    const page = await this.browserContext.getCurrentPage()
+    // Get all standard actions (no filter) and page-specific actions
+
+    const standardActions = this.controller.registry.getPromptDescription()
+    const pageActions = this.controller.registry.getPromptDescription(page)
+    let allActions = standardActions
+    if (pageActions) {
+      allActions += `\n${pageActions}`
+    }
+
+    // Create planner message history using full message history with all available actions
+    const plannerMessages = [
+      new PlannerPrompt(allActions).getSystemMessage(this.settings.isPlannerReasoning, this.settings.extendPlannerSystemMessage),
+      ...this.messageManager.getMessages().slice(1),
+    ]
+
+    if (!this.settings.useVisionForPlanner && this.settings.useVision) {
+      const lastStateMessage = plannerMessages.at(-1)!
+      let newMsg = ''
+      if (Array.isArray(lastStateMessage.content)) {
+        for (const msg of lastStateMessage.content) {
+          if (msg.type === 'text') {
+            // @ts-expect-error
+            newMsg += msg.content
+          }
+        }
+      } else {
+        newMsg = lastStateMessage.content
+      }
+      plannerMessages[plannerMessages.length - 1] = new HumanMessage({
+        content: newMsg,
+
+      })
+    }
+
+    let response: AIMessageChunk
+    try {
+      response = await this.settings.plannerLlm.invoke(plannerMessages)
+    } catch (error) {
+      logger.error(`Failed to invoke planner: ${error}`)
+      throw new LLMException(401, 'LLM API call failed')
+    }
+    let plan = response.content.toString()
+
+    if (this.plannerModelName && (this.plannerModelName.toLowerCase().includes('deepseek-r1') || this.plannerModelName.toLowerCase().includes('deepseek-reasoner'))) {
+      
+      plan = this.removeThinkTags(plan)
+    }
+
+    try {
+      const planJson = JSON.parse(plan)
+      logger.info(`Planning Analysis:\n${JSON.stringify(planJson, null, 2)}`)
+    } catch (error) {
+      logger.error(`Failed to parse plan JSON: ${error}`)
+    }
+
+    return plan
+   
+  }
+  removeThinkTags(plan: string): string {
     throw new Error('Method not implemented.')
   }
 
