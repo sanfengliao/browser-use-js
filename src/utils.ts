@@ -27,7 +27,7 @@ export class SignalHandler {
   private pauseCallback?: () => void
 
   /** Function to call when system is resumed */
-  private resumeCallback?: () => void
+  private resumeCallback?: () => Promise<void> | void
 
   /** Function to call on exit (second Ctrl+C or SIGTERM) */
   private customExitCallback?: () => void
@@ -65,7 +65,7 @@ export class SignalHandler {
   constructor(options: {
     loop?: EventEmitter
     pauseCallback?: () => void
-    resumeCallback?: () => void
+    resumeCallback?: () => (Promise<void> | void)
     customExitCallback?: () => void
     exitOnSecondInt?: boolean
     interruptibleTaskPatterns?: string[]
@@ -293,15 +293,14 @@ export class SignalHandler {
       output: process.stdout,
     })
     return new Promise((resolve) => {
-      rl.question('', (answer) => {
-        console.log('answer', answer)
+      rl.question('', async (input) => {
+        console.log('answer----->', input)
         rl.close()
-        resolve(undefined)
 
         // Call resume callback if provided
         if (this.resumeCallback) {
           try {
-            this.resumeCallback()
+            await this.resumeCallback()
           } catch (error) {
             logger.error(`Error in resume callback: ${error}`)
           }
@@ -314,6 +313,7 @@ export class SignalHandler {
         })
 
         this.waitingForInput = false
+        resolve(undefined)
       })
     })
   }

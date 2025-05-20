@@ -1,14 +1,13 @@
-import path from 'node:path'
 import { Browser } from '@/browser/browser'
 import { BrowserContext } from '@/browser/context'
 import { BrowserState, BrowserStateHistory } from '@/browser/view'
 import { ActionModel, ActionPayload, ExecuteActions } from '@/controller/registry/view'
 import { Controller } from '@/controller/service'
-import { InterruptedError, LLMException } from '@/error'
+import { LLMException } from '@/error'
 import { Logger } from '@/logger'
 import { ProductTelemetry } from '@/telemetry/service'
 import { AgentEndTelemetryEvent, AgentRunTelemetryEvent, AgentStepTelemetryEvent } from '@/telemetry/view'
-import { checkEnvVariables, isSubset, sleep, timeExecutionAsync } from '@/utils'
+import { checkEnvVariables, isSubset, SignalHandler, sleep, timeExecutionAsync } from '@/utils'
 import { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { AIMessageChunk, BaseMessage, HumanMessage } from '@langchain/core/messages'
 import { config } from 'dotenv'
@@ -636,7 +635,13 @@ export class Agent<Context = any> {
     onStepStart?: AgentHook
     onStepEnd?: AgentHook
   } = {}) {
-    // TODO: signal pause/resume/stop
+    const signalHandler = new SignalHandler({
+      pauseCallback: () => this.pause(),
+      resumeCallback: () => this.resume(),
+      exitOnSecondInt: true,
+    })
+
+    signalHandler.register()
 
     await this.init()
     try {
@@ -648,7 +653,8 @@ export class Agent<Context = any> {
       let step = 0
       for (; step < maxSteps; step++) {
         if (this.state.paused) {
-          // TODO: signal handler handle pause
+          await signalHandler.waitForResume()
+          signalHandler.reset()
         }
 
         if (this.state.consecutiveFailures >= this.settings.maxFailures) {
@@ -661,11 +667,12 @@ export class Agent<Context = any> {
           break
         }
 
-        // TODO: signal handler
-        // while self.state.paused:
-        //   await asyncio.sleep(0.2)  # Small delay to prevent CPU spinning
-        //   if self.state.stopped:  # Allow stopping while paused
-        //     break
+        while (this.state.paused) {
+          await sleep(0.2) // Small delay to prevent CPU spinning
+          if (this.state.stopped) { // Allow stopping while paused
+            break
+          }
+        }
 
         if (onStepStart) {
           await onStepStart(this)
@@ -717,10 +724,9 @@ export class Agent<Context = any> {
 
       return this.state.history
     } catch (error) {
-      // TODO: signal handler KeyboardInterrupt
+      logger.error('Error during agent execution:', error)
     } finally {
-      // TODO: Unregister signal handlers before cleanup
-
+      signalHandler.unregister()
       this.telemetry.capture(new AgentEndTelemetryEvent({
         agentId: this.state.agentId,
         isDone: this.state.history.isDone(),
@@ -748,6 +754,24 @@ export class Agent<Context = any> {
           outputPath,
         })
       }
+    }
+  }
+
+  /**
+   * Pause the agent before the next step
+   */
+  pause() {
+    console.log('\n\n⏸️  Got Ctrl+C, paused the agent and left the browser open.')
+    this.state.paused = true
+  }
+
+  async resume() {
+    console.log('----------------------------------------------------------------------')
+    console.log('▶️  Got Enter, resuming agent execution where it left off...\n')
+    this.state.paused = false
+    if (this.browser) {
+      await this.browser.init()
+      await sleep(5)
     }
   }
 
@@ -890,7 +914,7 @@ export class Agent<Context = any> {
 
         this.messageManager.addModelOutput(modelOutput)
       } catch (error) {
-        // TODO: handle error
+        logger.error('Error during getNextAction', error)
         this.messageManager.removeLastStateMessage()
       }
 
@@ -904,16 +928,9 @@ export class Agent<Context = any> {
 
       this.state.consecutiveFailures = 0
     } catch (error) {
-      // TODO: handle error
-      if (error instanceof InterruptedError) {
-        this.state.lastResult = [new ActionResult({
-          error: 'The agent was paused mid-step - the last action might need to be repeated',
-          includeInMemory: false,
-        })]
-      } else {
-        result = this.handleStepError(error)
-        this.state.lastResult = result
-      }
+      logger.error('Error during agent step', error)
+      result = this.handleStepError(error)
+      this.state.lastResult = result
     } finally {
       const stepEndTime = Date.now()
 

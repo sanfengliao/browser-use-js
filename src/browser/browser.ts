@@ -155,7 +155,7 @@ export class Browser {
   }
 
   @timeExecutionAsync('--init (browser)')
-  private async init() {
+  async init() {
     this.playwrightBrowser = await this.setupBrowser()
     return this.playwrightBrowser
   }
