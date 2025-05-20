@@ -170,30 +170,7 @@ export class SignalHandler {
     }
 
     // Force immediate exit - more reliable than sys.exit()
-    logger.error('\n\n🛑  Got second Ctrl+C. Exiting immediately...\n')
-
-    // Reset terminal to a clean state by sending multiple escape sequences
-    // Order matters for terminal resets - we try different approaches
-
-    // Reset terminal modes for both stdout and stderr
-    process.stderr.write('\u001B[?25h') // Show cursor
-    process.stdout.write('\u001B[?25h') // Show cursor
-
-    // Reset text attributes and terminal modes
-    process.stderr.write('\u001B[0m') // Reset text attributes
-    process.stdout.write('\u001B[0m') // Reset text attributes
-
-    // Disable special input modes that may cause arrow keys to output control chars
-    process.stderr.write('\u001B[?1l') // Reset cursor keys to normal mode
-    process.stdout.write('\u001B[?1l') // Reset cursor keys to normal mode
-
-    // Disable bracketed paste mode
-    process.stderr.write('\u001B[?2004l')
-    process.stdout.write('\u001B[?2004l')
-
-    // Carriage return helps ensure a clean line
-    process.stderr.write('\r')
-    process.stdout.write('\r')
+    logger.info('\n\n🛑  Got second Ctrl+C. Exiting immediately...\n')
 
     process.exit(0)
   }
@@ -205,6 +182,7 @@ export class SignalHandler {
    * Second Ctrl+C: Exit immediately if exitOnSecondInt is True.
    */
   public sigintHandler(): void {
+    logger.info('SIGINT received')
     if (exiting) {
       // Already exiting, force exit immediately
       process.exit(0)
@@ -283,12 +261,12 @@ export class SignalHandler {
    * It temporarily restores default signal handling to allow catching
    * a second Ctrl+C directly.
    */
-  public waitForResume(): void {
+  public waitForResume() {
     // Set flag to indicate we're waiting for input
-    (this.loop as any).waiting_for_input = true
+    this.waitingForInput = true
 
     // Store original handlers
-    const originalHandler = process.listeners('SIGINT').slice()
+    const originalHandlers = process.listeners('SIGINT').slice()
 
     // Clear and set temporary handler
     process.removeAllListeners('SIGINT')
@@ -304,7 +282,7 @@ export class SignalHandler {
     const reset = '\x1B[0m'
 
     // Display prompt
-    process.stderr.write(
+    console.log(
       `➡️  Press ${green}[Enter]${reset} to resume or ${red}[Ctrl+C]${reset} again to exit...`,
     )
 
@@ -312,28 +290,31 @@ export class SignalHandler {
 
     const rl = readline.createInterface({
       input: process.stdin,
-      output: process.stderr,
+      output: process.stdout,
     })
+    return new Promise((resolve) => {
+      rl.question('', (answer) => {
+        console.log('answer', answer)
+        rl.close()
+        resolve(undefined)
 
-    rl.question('', () => {
-      rl.close()
-
-      // Call resume callback if provided
-      if (this.resumeCallback) {
-        try {
-          this.resumeCallback()
-        } catch (error) {
-          logger.error(`Error in resume callback: ${error}`)
+        // Call resume callback if provided
+        if (this.resumeCallback) {
+          try {
+            this.resumeCallback()
+          } catch (error) {
+            logger.error(`Error in resume callback: ${error}`)
+          }
         }
-      }
 
-      // Restore original handlers
-      process.removeAllListeners('SIGINT')
-      originalHandler.forEach((handler) => {
-        process.on('SIGINT', handler)
+        // Restore original handlers
+        process.removeAllListeners('SIGINT')
+        originalHandlers.forEach((handler) => {
+          process.on('SIGINT', handler)
+        })
+
+        this.waitingForInput = false
       })
-
-      this.waitingForInput = false
     })
   }
 
@@ -424,7 +405,3 @@ export function isSubset<T>(setA: Set<T>, setB: Set<T>): boolean {
 }
 
 export const sleep = (second: number) => new Promise(resolve => setTimeout(resolve, second * 1000))
-
-
-
-

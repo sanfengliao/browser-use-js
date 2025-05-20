@@ -4,6 +4,7 @@ import { BrowserContext } from '@/browser/context'
 import { BrowserState, BrowserStateHistory } from '@/browser/view'
 import { ActionModel, ActionPayload, ExecuteActions } from '@/controller/registry/view'
 import { Controller } from '@/controller/service'
+import { InterruptedError, LLMException } from '@/error'
 import { Logger } from '@/logger'
 import { ProductTelemetry } from '@/telemetry/service'
 import { AgentEndTelemetryEvent, AgentRunTelemetryEvent, AgentStepTelemetryEvent } from '@/telemetry/view'
@@ -19,7 +20,6 @@ import { MessageManager } from './message_manager/service'
 import { isModelWithoutToolSupport, saveConversation } from './message_manager/utils'
 import { PlannerPrompt, SystemPrompt } from './prompt'
 import { ActionResult, AgentHistory, AgentHistoryList, AgentOutput, AgentSettings, AgentState, AgentStepInfo, StepMetadata } from './views'
-import { InterruptedError, LLMException } from '@/error'
 
 config()
 
@@ -719,7 +719,7 @@ export class Agent<Context = any> {
     } catch (error) {
       // TODO: signal handler KeyboardInterrupt
     } finally {
-      // TODO: signal handler
+      // TODO: Unregister signal handlers before cleanup
 
       this.telemetry.capture(new AgentEndTelemetryEvent({
         agentId: this.state.agentId,
@@ -1031,7 +1031,6 @@ export class Agent<Context = any> {
     let plan = response.content.toString()
 
     if (this.plannerModelName && (this.plannerModelName.toLowerCase().includes('deepseek-r1') || this.plannerModelName.toLowerCase().includes('deepseek-reasoner'))) {
-      
       plan = this.removeThinkTags(plan)
     }
 
@@ -1043,8 +1042,8 @@ export class Agent<Context = any> {
     }
 
     return plan
-   
   }
+
   removeThinkTags(plan: string): string {
     throw new Error('Method not implemented.')
   }
