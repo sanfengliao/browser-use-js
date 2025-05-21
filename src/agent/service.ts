@@ -10,16 +10,17 @@ import { ProductTelemetry } from '@/telemetry/service'
 import { AgentEndTelemetryEvent, AgentRunTelemetryEvent, AgentStepTelemetryEvent } from '@/telemetry/view'
 import { checkEnvVariables, isSubset, SignalHandler, sleep, timeExecutionAsync } from '@/utils'
 import { BaseChatModel } from '@langchain/core/language_models/chat_models'
-import { AIMessageChunk, BaseMessage, HumanMessage } from '@langchain/core/messages'
+import { AIMessageChunk, BaseMessage, HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { config } from 'dotenv'
 import { RateLimitError } from 'openai'
 import { Page } from 'playwright'
+import { z } from 'zod'
 import { createHistoryGif } from './gif'
 import { Memory } from './memory/service'
 import { MemoryConfig } from './memory/views'
 import { MessageManager } from './message_manager/service'
 import { convertInputMessages, extractJsonFromModelOutput, isModelWithoutToolSupport, saveConversation } from './message_manager/utils'
-import { PlannerPrompt, SystemPrompt } from './prompt'
+import { AgentMessagePrompt, PlannerPrompt, SystemPrompt } from './prompt'
 import { ActionResult, AgentBrain, AgentError, AgentHistory, AgentHistoryList, AgentOutput, AgentSettings, AgentState, AgentStepInfo, StepMetadata } from './views'
 
 config()
@@ -810,8 +811,72 @@ export class Agent<Context = any> {
     throw new Error('Method not implemented.')
   }
 
+  /**
+   * Validate the output of the last action is what the user wanted
+   */
   async validateOutput(): Promise<boolean> {
-    throw new Error('Method not implemented.')
+    // Validation system message
+    const systemMsg
+    = `You are a validator of an agent who interacts with a browser. `
+      + `Validate if the output of last action is what the user wanted and if the task is completed. `
+      + `If the task is unclear defined, you can let it pass. But if something is missing or the image does not show what was requested dont let it pass. `
+      + `Try to understand the page and help the model with suggestions like scroll, do x, ... to get the solution right. `
+      + `Task to validate: ${this.task}. Return a JSON object with 2 keys: is_valid and reason. `
+      + `is_valid is a boolean that indicates if the output is correct. `
+      + `reason is a string that explains why it is valid or not.`
+      + ` example: {"is_valid": false, "reason": "The user wanted to search for "cat photos", but the agent searched for "dog photos" instead."}`
+
+    // If no browser session, we can't validate the output
+    if (!this.browserContext.session) {
+      return true
+    }
+    // Get current browser state
+    const state = await this.browserContext.getState(false)
+
+    // Create agent message with current state and results
+    const content = new AgentMessagePrompt({
+      state,
+      result: this.state.lastResult,
+      includeAttributes: this.settings.includeAttributes,
+    })
+    // Create message array for LLM
+    const msg = [
+      new SystemMessage(systemMsg),
+      content.getUserMessage(this.settings.useVision),
+    ]
+
+    try {
+      const validator = this.llm.withStructuredOutput(z.object({
+        isValid: z.boolean(),
+        reason: z.string(),
+      }), {
+        includeRaw: true,
+      })
+
+      // Get validation response
+      const response = await validator.invoke(msg)
+      const parsed = response.parsed
+
+      // Check validation result
+      const isValid = parsed.isValid
+
+      if (!isValid) {
+        logger.info(`❌ Validator decision: ${parsed.reason}`)
+        const msg = `The output is not yet correct. ${parsed.reason}.`
+        this.state.lastResult = [new ActionResult({
+          extractedContent: msg,
+          includeInMemory: true,
+        })]
+      } else {
+        logger.info(`✅ Validator decision: ${parsed.reason}`)
+      }
+
+      return isValid
+    } catch (error) {
+    // If validation fails, log error and return true to continue
+      logger.warn(`Error during output validation: ${error}`)
+      return false
+    }
   }
 
   async step(stepInfo: AgentStepInfo) {
