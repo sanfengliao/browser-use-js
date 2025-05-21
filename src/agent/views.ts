@@ -585,7 +585,7 @@ export class AgentHistoryList {
           state: new BrowserStateHistory({
             ...h.state,
             interactedElement: (h.state.interactedElement).map((el) => {
-              return el ? new DOMHistoryElement(el) : null
+              return el ? new DOMHistoryElement(el) : undefined
             }),
           }),
           metadata: h.metadata ? new StepMetadata(h.metadata) : undefined,

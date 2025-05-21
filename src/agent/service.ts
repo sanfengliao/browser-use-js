@@ -3,6 +3,7 @@ import { BrowserContext } from '@/browser/context'
 import { BrowserState, BrowserStateHistory } from '@/browser/view'
 import { ActionModel, ActionPayload, ExecuteActions } from '@/controller/registry/view'
 import { Controller } from '@/controller/service'
+import { DOMHistoryElement } from '@/dom/history_tree_processor/view'
 import { LLMException } from '@/error'
 import { Logger } from '@/logger'
 import { ProductTelemetry } from '@/telemetry/service'
@@ -11,6 +12,7 @@ import { checkEnvVariables, isSubset, SignalHandler, sleep, timeExecutionAsync }
 import { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { AIMessageChunk, BaseMessage, HumanMessage } from '@langchain/core/messages'
 import { config } from 'dotenv'
+import { RateLimitError } from 'openai'
 import { Page } from 'playwright'
 import { createHistoryGif } from './gif'
 import { Memory } from './memory/service'
@@ -18,7 +20,7 @@ import { MemoryConfig } from './memory/views'
 import { MessageManager } from './message_manager/service'
 import { convertInputMessages, extractJsonFromModelOutput, isModelWithoutToolSupport, saveConversation } from './message_manager/utils'
 import { PlannerPrompt, SystemPrompt } from './prompt'
-import { ActionResult, AgentBrain, AgentHistory, AgentHistoryList, AgentOutput, AgentSettings, AgentState, AgentStepInfo, StepMetadata } from './views'
+import { ActionResult, AgentBrain, AgentError, AgentHistory, AgentHistoryList, AgentOutput, AgentSettings, AgentState, AgentStepInfo, StepMetadata } from './views'
 
 config()
 
@@ -795,6 +797,11 @@ export class Agent<Context = any> {
     }
   }
 
+  stop() {
+    logger.info('⏹️ Agent stopping')
+    this.state.stopped = true
+  }
+
   close() {
     throw new Error('Method not implemented.')
   }
@@ -949,7 +956,7 @@ export class Agent<Context = any> {
       this.state.consecutiveFailures = 0
     } catch (error) {
       logger.error('Error during agent step', error)
-      result = this.handleStepError(error)
+      result = await this.handleStepError(error as Error)
       this.state.lastResult = result
     } finally {
       const stepEndTime = Date.now()
@@ -970,7 +977,7 @@ export class Agent<Context = any> {
       }
 
       if (state) {
-        const metaData = new StepMetadata({
+        const metadata = new StepMetadata({
           stepNumber: this.state.nSteps,
           stepStartTime,
           stepEndTime,
@@ -980,18 +987,91 @@ export class Agent<Context = any> {
           modelOutput,
           state,
           result,
-          metaData,
+          metadata,
         })
       }
     }
   }
 
-  makeHistoryItem(arg0: { modelOutput: AgentOutput, state: BrowserState, result: ActionResult[], metaData: StepMetadata }) {
-    throw new Error('Method not implemented.')
+  /**
+   * Create and store history item
+   */
+  makeHistoryItem({
+    modelOutput,
+    state,
+    result,
+    metadata,
+  }: { modelOutput: AgentOutput, state: BrowserState, result: ActionResult[], metadata: StepMetadata }) {
+    // Get interacted elements from model output and state selector map
+    let interactedElements: (DOMHistoryElement | undefined)[]
+
+    if (modelOutput) {
+      interactedElements = AgentHistory.getInteractedElement(modelOutput, state.selectorMap)
+    } else {
+      interactedElements = [undefined]
+    }
+
+    // Create state history object
+    const stateHistory = new BrowserStateHistory({
+      url: state.url,
+      title: state.title,
+      tabs: state.tabs,
+      interactedElement: interactedElements,
+      screenshot: state.screenshot,
+    })
+
+    // Create and store history item
+    const historyItem = new AgentHistory({
+      modelOutput,
+      result,
+      state: stateHistory,
+      metadata,
+    })
+    this.state.history.history.push(historyItem)
   }
 
-  handleStepError(error: unknown): ActionResult[] {
-    throw new Error(`Method not implemented.${error}`)
+  /**
+   * Handle all types of errors that can occur during a step
+   * @param error
+   */
+  async handleStepError(error: Error): Promise<ActionResult[]> {
+    let errorMsg = AgentError.formatError(error)
+    const prefix = `❌ Result failed ${this.state.consecutiveFailures + 1}/${this.settings.maxFailures} times:\n `
+    this.state.consecutiveFailures += 1
+    if (errorMsg.includes('Browser closed')) {
+      logger.error('❌  Browser is closed or disconnected, unable to proceed')
+      return [new ActionResult({
+        error: 'Browser closed or disconnected, unable to proceed',
+        includeInMemory: false,
+      })]
+    }
+
+    if (errorMsg.includes('Max token limit reached')) {
+      // Cut tokens from history
+      this.messageManager.settings.maxInputTokens = this.settings.maxInputTokens - 500
+      logger.info(
+        `Cutting tokens from history - new max input tokens: ${this.messageManager.settings.maxInputTokens}`,
+      )
+      this.messageManager.cutMessages()
+    } else if (errorMsg.includes('Could not parse response')) {
+      // Give model a hint how output should look like
+      errorMsg += '\n\nReturn a valid JSON object with the required fields.'
+    } else {
+    // Define rate limit error types
+      const isRateLimitError = (
+        error instanceof RateLimitError // OpenAI
+        // || error instanceof ResourceExhausted // Google
+        // || error instanceof AnthropicRateLimitError // Anthropic
+      )
+
+      if (isRateLimitError) {
+        logger.warn(`${prefix}${errorMsg}`)
+        await sleep(this.settings.retryDelay * 1000)
+      } else {
+        logger.error(`${prefix}${errorMsg}`)
+      }
+    }
+    return [new ActionResult({ error: errorMsg, includeInMemory: true })]
   }
 
   updateActionModelsForPage(page: Page) {
@@ -1313,5 +1393,9 @@ export class Agent<Context = any> {
       version: this.version,
       source: this.source,
     }))
+  }
+
+  addNewTask(task: string) {
+    this.messageManager.addNewTask(task)
   }
 }

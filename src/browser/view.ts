@@ -41,14 +41,14 @@ export class BrowserStateHistory {
   url: string
   title: string
   tabs: TabInfo[]
-  interactedElement: (DOMHistoryElement | null)[]
+  interactedElement: (DOMHistoryElement | undefined)[]
   screenshot?: string
 
   constructor(data: {
     url: string
     title: string
     tabs: TabInfo[]
-    interactedElement: (DOMHistoryElement | null)[]
+    interactedElement: (DOMHistoryElement | undefined)[]
     screenshot?: string
   }) {
     this.url = data.url
