@@ -210,7 +210,12 @@ export class MessageManager {
    * @param useVision Whether to include screenshots in the message
    */
   public addStateMessage(
-    { state, result, stepInfo, useVision = true }: {
+    {
+      state,
+      result,
+      stepInfo,
+      useVision = true,
+    }: {
       state: BrowserState
       result?: ActionResult[]
       stepInfo?: AgentStepInfo

@@ -16,9 +16,9 @@ import { createHistoryGif } from './gif'
 import { Memory } from './memory/service'
 import { MemoryConfig } from './memory/views'
 import { MessageManager } from './message_manager/service'
-import { isModelWithoutToolSupport, saveConversation } from './message_manager/utils'
+import { convertInputMessages, extractJsonFromModelOutput, isModelWithoutToolSupport, saveConversation } from './message_manager/utils'
 import { PlannerPrompt, SystemPrompt } from './prompt'
-import { ActionResult, AgentHistory, AgentHistoryList, AgentOutput, AgentSettings, AgentState, AgentStepInfo, StepMetadata } from './views'
+import { ActionResult, AgentBrain, AgentHistory, AgentHistoryList, AgentOutput, AgentSettings, AgentState, AgentStepInfo, StepMetadata } from './views'
 
 config()
 
@@ -36,6 +36,26 @@ const REQUIRED_LLM_API_ENV_VARS = {
   ChatDeepSeek: ['DEEPSEEK_API_KEY'],
   ChatOllama: [],
   ChatGrok: ['GROK_API_KEY'],
+}
+
+function logResponse(response: AgentOutput): void {
+  let emoji = '🤷'
+
+  if (response.currentState.evaluationPreviousGoal.includes('Success')) {
+    emoji = '👍'
+  } else if (response.currentState.evaluationPreviousGoal.includes('Failed')) {
+    emoji = '⚠'
+  }
+
+  logger.info(`${emoji} Eval: ${response.currentState.evaluationPreviousGoal}`)
+  logger.info(`🧠 Memory: ${response.currentState.memory}`)
+  logger.info(`🎯 Next goal: ${response.currentState.nextGoal}`)
+
+  for (let i = 0; i < response.action.length; i++) {
+    logger.info(
+      `🛠️  Action ${i + 1}/${response.action.length}: ${response.action[i].modelDumpJson({ excludeUnset: true })}`,
+    )
+  }
 }
 
 export type AgentHook = (agent: Agent) => Promise<void>
@@ -992,8 +1012,134 @@ export class Agent<Context = any> {
     this.DoneAgentOutput = AgentOutput.typeWithCustomActions(this.DoneActionModel)
   }
 
-  getNextAction(inputMessages: BaseMessage[]): AgentOutput {
-    throw new Error('Method not implemented.')
+  /**
+   * Get next action from LLM based on current state
+   * @param inputMessages
+   */
+  @timeExecutionAsync('--getNextAction (agent)')
+  async getNextAction(inputMessages: BaseMessage[]): Promise<AgentOutput> {
+    inputMessages = this.convertInputMessages(inputMessages)
+
+    let response: { raw: AIMessageChunk, parsed: AgentOutput | undefined }
+    let parsed: AgentOutput | undefined
+    if (this.toolCallingMethod === 'raw') {
+      logger.debug(`Using ${this.toolCallingMethod} for ${this.chatModelLibrary}`)
+      let output: AIMessageChunk
+      try {
+        output = await this.llm.invoke(inputMessages)
+        response = {
+          raw: output,
+          parsed: undefined,
+        }
+      } catch (e) {
+        console.error(`Failed to invoke model: ${e}`)
+        throw new LLMException(401, 'LLM API call failed')
+      }
+      output.content = this.removeThinkTags(output.content as string)
+      try {
+        const parsedJson = extractJsonFromModelOutput(output.content)
+        parsed = new this.AgentOutput({
+          action: parsedJson.action,
+          currentState: parsedJson.currentState,
+        })
+        response.parsed = parsed
+      } catch (error) {
+        logger.warn(`Failed to parse model output: ${output} ${error}`)
+        throw new Error('Could not parse response.')
+      }
+    } else if (!this.toolCallingMethod) {
+      const structuredLlm = this.llm.withStructuredOutput(this.AgentOutput.schema, { includeRaw: true })
+      try {
+        const output = await structuredLlm.invoke(inputMessages)
+        parsed = new this.AgentOutput(output.parsed)
+        response = {
+          raw: output.raw as AIMessageChunk,
+          parsed,
+        }
+      } catch (e) {
+        console.error(`Failed to invoke model: ${e}`)
+        throw new LLMException(401, 'LLM API call failed')
+      }
+    } else {
+      try {
+        logger.debug(`Using ${this.toolCallingMethod} for ${this.chatModelLibrary}`)
+        const structuredLlm = this.llm.withStructuredOutput(this.AgentOutput.schema, {
+          includeRaw: true,
+          method: this.toolCallingMethod,
+        })
+        const output = await structuredLlm.invoke(inputMessages)
+
+        parsed = new this.AgentOutput(output.parsed)
+        response = {
+          raw: output.raw as AIMessageChunk,
+          parsed,
+        }
+      } catch (e) {
+        console.error(`Failed to invoke model: ${e}`)
+        throw new LLMException(401, 'LLM API call failed')
+      }
+    }
+    // Handle tool call responses
+    if (!parsed && response.raw) {
+      const rawMsg = response.raw
+      if (rawMsg.tool_calls && rawMsg.tool_calls.length) {
+      // Convert tool calls to AgentOutput format
+        const toolCall = rawMsg.tool_calls[0] // Take first tool call
+
+        // Create current state
+        const toolCallName = toolCall.name
+        const toolCallArgs = toolCall.args
+
+        const currentState: AgentBrain = {
+          // pageSummary: 'Processing tool call',
+          evaluationPreviousGoal: 'Executing action',
+          memory: 'Using tool call',
+          nextGoal: `Execute ${toolCallName}`,
+        }
+
+        // Create action from tool call
+        const action = { [toolCallName]: toolCallArgs }
+
+        response.parsed = new this.AgentOutput({
+          currentState,
+          action: [new this.ActionModel(action)],
+        })
+      } else {
+        response.parsed = undefined
+      }
+    }
+
+    // If still no parsed output, try to extract JSON from raw content
+    if (!response.parsed) {
+      try {
+        const parsedJson = extractJsonFromModelOutput(response.raw.content as string)
+        response.parsed = new this.AgentOutput({
+          action: parsedJson.action,
+          currentState: parsedJson.currentState,
+        })
+      } catch (e) {
+        logger.warn(`Failed to parse model output: ${response.raw.content} ${e}`)
+        throw new Error('Could not parse response.')
+      }
+    }
+    // Cut the number of actions to max_actions_per_step if needed
+    if (response.parsed.action.length > this.settings.maxActionsPerStep) {
+      response.parsed.action = response.parsed.action.slice(0, this.settings.maxActionsPerStep)
+    }
+
+    // Log the response if agent is not paused or stopped
+    if (!(this.state.paused || this.state.stopped)) {
+      logResponse(response.parsed)
+    }
+
+    return response.parsed
+  }
+
+  convertInputMessages(inputMessages: BaseMessage[]): BaseMessage[] {
+    if (isModelWithoutToolSupport(this.modelName)) {
+      return convertInputMessages(inputMessages, this.modelName)
+    }
+    return inputMessages
   }
 
   async runPlanner(): Promise<string | undefined> {
@@ -1004,8 +1150,8 @@ export class Agent<Context = any> {
 
     // Get current state to filter actions by page
     const page = await this.browserContext.getCurrentPage()
-    // Get all standard actions (no filter) and page-specific actions
 
+    // Get all standard actions (no filter) and page-specific actions
     const standardActions = this.controller.registry.getPromptDescription()
     const pageActions = this.controller.registry.getPromptDescription(page)
     let allActions = standardActions
@@ -1061,8 +1207,13 @@ export class Agent<Context = any> {
     return plan
   }
 
-  removeThinkTags(plan: string): string {
-    throw new Error('Method not implemented.')
+  removeThinkTags(text: string): string {
+    // Step 1: Remove well-formed <think>...</think>
+    text = text.replace(/<think>[\s\S]*?<\/think>/g, '')
+    // Step 2: If there's an unmatched closing tag </think>,
+    //        remove everything up to and including that.
+    text = text.replace(/[\s\S]*?<\/think>/g, '')
+    return text.trim()
   }
 
   @timeExecutionAsync('--multi-act (agent)')

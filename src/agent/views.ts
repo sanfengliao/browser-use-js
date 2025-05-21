@@ -10,6 +10,7 @@ import { BrowserStateHistory } from '@/browser/view'
 import { ActionModel } from '@/controller/registry/view'
 import { DOMHistoryElement } from '@/dom/history_tree_processor/view'
 import { v4 as uuidv4 } from 'uuid'
+import { z } from 'zod'
 import { HistoryTreeProcessor } from '../dom/history_tree_processor/service'
 import { MessageManagerState } from './message_manager/view'
 
@@ -285,8 +286,15 @@ export interface AgentBrain {
  * that are not in this model as provided by the linter, as long as they are registered in the DynamicActions model.
  */
 export class AgentOutput {
+  static schema = z.object({
+    currentState: z.object({
+      memory: z.string(),
+      nextGoal: z.string(),
+      evaluationPreviousGoal: z.string(),
+    }),
+    action: z.array(ActionModel.schema),
+  })
 
-  static ActionModelClass = ActionModel
   /**
    * Current state of the agent
    */
@@ -298,7 +306,6 @@ export class AgentOutput {
 
   action: ActionModel[]
 
-
   /**
    * Create a new AgentOutput instance
    */
@@ -308,13 +315,11 @@ export class AgentOutput {
   }) {
     this.currentState = data.currentState
 
-    const ActionModelClass = (this.constructor as typeof AgentOutput).ActionModelClass
-
     this.action = data.action.map((action) => {
       if (action instanceof ActionModel) {
         return action
       } else {
-        return new ActionModelClass(action)
+        return new ActionModel(action)
       }
     })
   }
@@ -335,7 +340,14 @@ export class AgentOutput {
    */
   static typeWithCustomActions<T extends typeof ActionModel>(CustomActionModel: T) {
     class ExtendedAgentOutput extends AgentOutput {
-      static ActionModelClass = CustomActionModel
+      static schema = z.object({
+        currentState: z.object({
+          memory: z.string(),
+          nextGoal: z.string(),
+          evaluationPreviousGoal: z.string(),
+        }),
+        action: z.array(CustomActionModel.schema),
+      })
     }
 
     return ExtendedAgentOutput

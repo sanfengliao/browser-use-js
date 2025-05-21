@@ -56,12 +56,8 @@ export interface ExecuteActions {
  */
 export class ActionModel {
   [actionName: string]: ActionParameters
-  static schema?: z.ZodType
+  static schema: z.ZodType
   constructor(params: ExecuteActions) {
-    const schema = (this.constructor as typeof ActionModel).schema
-    if (schema) {
-      params = schema.parse(params)
-    }
     Object.assign(this, params)
   }
 
