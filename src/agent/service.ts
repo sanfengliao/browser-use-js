@@ -807,8 +807,21 @@ export class Agent<Context = any> {
     throw new Error('Method not implemented.')
   }
 
-  logCompletion() {
-    throw new Error('Method not implemented.')
+  /**
+   * Log the completion of the task
+   */
+  async logCompletion() {
+    if (this.state.history.isSuccessful()) {
+      logger.info('✅ Task completed')
+    } else {
+      logger.info('❌ Unfinished')
+    }
+
+    const totalToken = this.state.history.totalInputTokens()
+    logger.info(`📝 Total input tokens used (approximate): ${totalToken}`)
+    if (this.registerDoneCallback) {
+      await this.registerDoneCallback(this.state.history)
+    }
   }
 
   /**
