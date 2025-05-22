@@ -824,6 +824,33 @@ export class Agent<Context = any> {
     }
   }
 
+  async takeStep() {
+    await this.step()
+    if (this.state.history.isDone()) {
+      if (this.settings.validateOutput) {
+        const isValid = await this.validateOutput()
+        if (!isValid) {
+          return {
+            isDone: true,
+            isValid: false,
+          }
+        }
+      }
+      await this.logCompletion()
+      if (this.registerDoneCallback) {
+        await this.registerDoneCallback(this.state.history)
+      }
+      return {
+        isDone: true,
+        isValid: true,
+      }
+    }
+    return {
+      isDone: false,
+      isValid: true,
+    }
+  }
+
   /**
    * Validate the output of the last action is what the user wanted
    */
@@ -892,7 +919,7 @@ export class Agent<Context = any> {
     }
   }
 
-  async step(stepInfo: AgentStepInfo) {
+  async step(stepInfo?: AgentStepInfo) {
     logger.info(`📍 Step ${this.state.nSteps}`)
     let state: BrowserState | undefined
     let modelOutput!: AgentOutput
