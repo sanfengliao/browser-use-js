@@ -3,6 +3,7 @@ import { BrowserContext } from '@/browser/context'
 import { BrowserState, BrowserStateHistory } from '@/browser/view'
 import { ActionModel, ActionPayload, ExecuteActions } from '@/controller/registry/view'
 import { Controller } from '@/controller/service'
+import { HistoryTreeProcessor } from '@/dom/history_tree_processor/service'
 import { DOMHistoryElement } from '@/dom/history_tree_processor/view'
 import { LLMException } from '@/error'
 import { Logger } from '@/logger'
@@ -1502,5 +1503,114 @@ export class Agent<Context = any> {
 
   addNewTask(task: string) {
     this.messageManager.addNewTask(task)
+  }
+
+  /**
+   * Re-run the history of the agent
+   * @param history The history to re-run
+   * @param maxRetries The maximum number of retries for each action
+   * @param skipFailures Whether to skip failures or not
+   * @param delayBetweenActions The delay between actions in seconds
+   * @returns List of action results
+   */
+  async reRunHistory({
+    history,
+    maxRetries = 3,
+    skipFailures = true,
+    delayBetweenActions = 2,
+  }: {
+    history: AgentHistoryList
+    maxRetries?: number
+    skipFailures?: boolean
+    delayBetweenActions: number
+  }): Promise<ActionResult[]> {
+    if (this.initialActions.length) {
+      const result = await this.multiAct(this.initialActions, false)
+      this.state.lastResult = result
+    }
+    const results: ActionResult[] = []
+    for (const [i, historyItem] of history.history.entries()) {
+      const goal = historyItem.modelOutput ? historyItem.modelOutput.currentState.nextGoal : ''
+      logger.info(`Replaying step ${i + 1}/${history.history.length}: goal: ${goal}`)
+      if (!historyItem.modelOutput?.action.filter(Boolean).length) {
+        logger.warn(`Step ${i + 1}: No action to replay, skipping`)
+        results.push(new ActionResult({
+          error: 'No action to replay',
+        }))
+        continue
+      }
+
+      let retryCount = 0
+
+      while (retryCount < maxRetries) {
+        try {
+          const result = await this.executeHistoryStep(historyItem, delayBetweenActions)
+          results.push(...result)
+          break
+        } catch (error) {
+          retryCount += 1
+          if (retryCount === maxRetries) {
+            const errorMsg = `'Step ${i + 1} failed after ${maxRetries} attempts: ${error}'`
+            logger.error(errorMsg)
+            if (!skipFailures) {
+              results.push(new ActionResult({
+                error: errorMsg,
+                includeInMemory: true,
+              }))
+            }
+            throw new Error(errorMsg)
+          } else {
+            logger.warn(`Step ${i + 1} failed (attempt ${retryCount}/${maxRetries}), retrying...`)
+            await sleep(delayBetweenActions)
+          }
+        }
+      }
+    }
+
+    return results
+  }
+
+  /**
+   * Execute a single step from history with element validation
+   */
+  async executeHistoryStep(historyItem: AgentHistory, delayBetweenActions: number): Promise<ActionResult[]> {
+    const state = await this.browserContext.getState(false)
+    if (!state || !historyItem.modelOutput) {
+      throw new Error('Invalid state or model output')
+    }
+    const updateActions: ActionModel[] = []
+    for (const [i, action] of historyItem.modelOutput.action.entries()) {
+      const updateAction = this.updateActionIndices(historyItem.state.interactedElement[i], action, state)
+      if (!updateAction) {
+        throw new Error(`Could not find matching element ${i} in current page`)
+      }
+      updateActions.push(updateAction)
+    }
+    const results = this.multiAct(updateActions)
+    await sleep(delayBetweenActions)
+    return results
+  }
+
+  /**
+   * Update action indices based on current page state.
+   * Returns updated action or None if element cannot be found.
+   */
+  updateActionIndices(historicalElement: DOMHistoryElement | undefined, action: ActionModel, currentState: BrowserState) {
+    if (!historicalElement || !currentState.elementTree) {
+      return action
+    }
+
+    const currentElement = HistoryTreeProcessor.findHistoryElementInTree(historicalElement, currentState.elementTree)
+    if (!currentElement || !currentElement.highlightIndex) {
+      return undefined
+    }
+
+    const oldIndex = action.getIndex()
+
+    if (oldIndex !== currentElement.highlightIndex) {
+      action.setIndex(currentElement.highlightIndex)
+      logger.info(`Element moved in DOM, updated index from ${oldIndex} to ${currentElement.highlightIndex}`)
+    }
+    return action
   }
 }
