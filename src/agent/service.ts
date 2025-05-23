@@ -804,8 +804,17 @@ export class Agent<Context = any> {
     this.state.stopped = true
   }
 
-  close() {
-    throw new Error('Method not implemented.')
+  async close() {
+    try {
+      if (this.browserContext && !this.injectedBrowserContext) {
+        this.browserContext.close()
+      }
+      if (this.browser && !this.injectedBrowser) {
+        this.browser.close()
+      }
+    } catch (error) {
+      logger.error('Error closing browser:', error)
+    }
   }
 
   /**
@@ -1522,7 +1531,7 @@ export class Agent<Context = any> {
     history: AgentHistoryList
     maxRetries?: number
     skipFailures?: boolean
-    delayBetweenActions: number
+    delayBetweenActions?: number
   }): Promise<ActionResult[]> {
     if (this.initialActions.length) {
       const result = await this.multiAct(this.initialActions, false)
@@ -1612,5 +1621,25 @@ export class Agent<Context = any> {
       logger.info(`Element moved in DOM, updated index from ${oldIndex} to ${currentElement.highlightIndex}`)
     }
     return action
+  }
+
+  async loadAndReturn({
+    historyFile = 'AgentHistory.json',
+    ...rest
+  }: {
+    historyFile?: string
+    maxRetries?: number
+    skipFailures?: boolean
+    delayBetweenActions?: number
+  }) {
+    const history = await AgentHistoryList.loadFromFile(historyFile, this.AgentOutput)
+    return this.reRunHistory({
+      history,
+      ...rest,
+    })
+  }
+
+  async saveHistory(historyFile = 'AgentHistory.json') {
+    await this.state.history.saveToFile(historyFile)
   }
 }

@@ -571,7 +571,7 @@ export class AgentHistoryList {
    */
   static async loadFromFile(
     filepath: string,
-    outputModel: typeof AgentOutput,
+    OutputModel: typeof AgentOutput,
   ): Promise<AgentHistoryList> {
     const pathStr = filepath.toString()
     const data: ReturnType<AgentHistoryList['toJSON']> = JSON.parse(await fs.readFile(pathStr, { encoding: 'utf-8' }))
@@ -580,7 +580,7 @@ export class AgentHistoryList {
     return new AgentHistoryList({
       history: data.history.map((h) => {
         return new AgentHistory({
-          modelOutput: h.modelOutput ? new AgentOutput(h.modelOutput) : undefined,
+          modelOutput: h.modelOutput ? new OutputModel(h.modelOutput) : undefined,
           result: h.result,
           state: new BrowserStateHistory({
             ...h.state,
