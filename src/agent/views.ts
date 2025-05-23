@@ -608,27 +608,27 @@ export class AgentHistoryList {
   /**
    * Get all errors from history, with null for steps without errors
    */
-  errors(): (string | null)[] {
+  errors(): (string | undefined)[] {
     return this.history.map((h) => {
       const stepErrors = h.result
         .filter(r => r.error)
         .map(r => r.error!)
 
       // Each step can have only one error
-      return stepErrors.length ? stepErrors[0] : null
+      return stepErrors.length ? stepErrors[0] : undefined
     })
   }
 
   /**
    * Final result from history
    */
-  finalResult(): string | null {
+  finalResult(): string | undefined {
     if (this.history.length && this.history[this.history.length - 1].result.length > 0) {
       return this.history[this.history.length - 1].result[
         this.history[this.history.length - 1].result.length - 1
-      ].extractedContent ?? null
+      ].extractedContent ?? undefined
     }
-    return null
+    return undefined
   }
 
   /**

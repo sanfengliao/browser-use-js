@@ -1321,6 +1321,7 @@ export class BrowserContext {
     const screenshot = await page.screenshot({
       fullPage,
       animations: 'disabled',
+      caret: 'initial',
     })
 
     // Convert buffer to base64 string

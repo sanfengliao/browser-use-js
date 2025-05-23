@@ -8,7 +8,7 @@ import { DOMHistoryElement } from '@/dom/history_tree_processor/view'
 import { LLMException } from '@/error'
 import { Logger } from '@/logger'
 import { ProductTelemetry } from '@/telemetry/service'
-import { AgentEndTelemetryEvent, AgentRunTelemetryEvent, AgentStepTelemetryEvent } from '@/telemetry/view'
+import { AgentTelemetryEvent } from '@/telemetry/view'
 import { checkEnvVariables, isSubset, SignalHandler, sleep, timeExecutionAsync } from '@/utils'
 import { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { AIMessageChunk, BaseMessage, HumanMessage, SystemMessage } from '@langchain/core/messages'
@@ -659,6 +659,7 @@ export class Agent<Context = any> {
     onStepStart?: AgentHook
     onStepEnd?: AgentHook
   } = {}) {
+    await this.init()
     const signalHandler = new SignalHandler({
       pauseCallback: () => this.pause(),
       resumeCallback: () => this.resume(),
@@ -667,7 +668,7 @@ export class Agent<Context = any> {
 
     signalHandler.register()
 
-    await this.init()
+    let agentRunError: string | undefined
     try {
       this.logAgentRun()
       if (this.initialActions.length) {
@@ -683,17 +684,21 @@ export class Agent<Context = any> {
 
         if (this.state.consecutiveFailures >= this.settings.maxFailures) {
           logger.error(`❌ Stopping due to ${this.settings.maxFailures} consecutive failures`)
+          agentRunError = `Stopped due to ${this.settings.maxFailures} consecutive failures`
           break
         }
 
         if (this.state.stopped) {
           logger.info('Agent stopped')
+          agentRunError = 'Agent stopped programmatically'
+
           break
         }
 
         while (this.state.paused) {
           await sleep(0.2) // Small delay to prevent CPU spinning
           if (this.state.stopped) { // Allow stopping while paused
+            agentRunError = 'Agent stopped programmatically while paused'
             break
           }
         }
@@ -727,11 +732,11 @@ export class Agent<Context = any> {
       }
 
       if (step === maxSteps) {
-        const errorMessage = 'Failed to complete task in maximum steps'
+        agentRunError = 'Failed to complete task in maximum steps'
         this.state.history.history.push(new AgentHistory({
           modelOutput: undefined,
           result: [new ActionResult({
-            error: errorMessage,
+            error: agentRunError,
             includeInMemory: true,
           })],
           state: new BrowserStateHistory({
@@ -743,24 +748,21 @@ export class Agent<Context = any> {
           }),
           metadata: undefined,
         }))
-        logger.info(`❌ ${errorMessage}`)
+        logger.info(`❌ ${agentRunError}`)
       }
 
       return this.state.history
     } catch (error) {
       logger.error('Error during agent execution:', error)
+      agentRunError = String(agentRunError)
     } finally {
       signalHandler.unregister()
-      this.telemetry.capture(new AgentEndTelemetryEvent({
-        agentId: this.state.agentId,
-        isDone: this.state.history.isDone(),
-        success: this.state.history.isSuccessful(),
-        steps: this.state.nSteps,
-        maxStepsReached: this.state.nSteps >= maxSteps,
-        errors: this.state.history.errors(),
-        totalDurationSeconds: this.state.history.totalDurationSeconds(),
-        totalInputTokens: this.state.history.totalInputTokens(),
-      }))
+      try {
+        this.logAgentEvent(maxSteps, agentRunError)
+        logger.info('Agent run telemetry logged.')
+      } catch (error) {
+        logger.error(`Failed to log telemetry event: ${error}`)
+      }
 
       // TODO: save playwright script
 
@@ -815,6 +817,52 @@ export class Agent<Context = any> {
     } catch (error) {
       logger.error('Error closing browser:', error)
     }
+  }
+
+  /**
+   * Log the agent event for this run"
+   * @param maxSteps
+   * @param agentRunError
+   */
+  logAgentEvent(maxSteps: number, agentRunError?: string) {
+    // Prepare action_history data correctly
+    const actionHistoryData: (Record<string, any>[] | undefined)[] = []
+    this.state.history.history.forEach((item) => {
+      if (item.modelOutput && item.modelOutput.action) {
+        const stepActions = item.modelOutput.action.map((action) => {
+          return {
+            ...action,
+          }
+        })
+        actionHistoryData.push(stepActions)
+      } else {
+        actionHistoryData.push(undefined)
+      }
+    })
+
+    const finalResult = this.state.history.finalResult()
+
+    this.telemetry.capture(new AgentTelemetryEvent({
+      task: this.task,
+      model: this.modelName,
+      modelProvider: this.chatModelLibrary,
+      plannerLLm: this.plannerModelName,
+      maxSteps,
+      maxActionsPerStep: this.settings.maxActionsPerStep,
+      useVision: this.settings.useVision,
+      useValidation: this.settings.validateOutput,
+      version: this.version,
+      actionErrors: this.state.history.errors(),
+      actionHistory: actionHistoryData,
+      steps: this.state.nSteps,
+      totalInputTokens: this.state.history.totalInputTokens(),
+      totalDurationSeconds: this.state.history.totalDurationSeconds(),
+      success: this.state.history.isSuccessful(),
+      finalResultResponse: finalResult,
+      errorMessage: agentRunError,
+      source: this.source,
+      urlVisited: [],
+    }))
   }
 
   /**
@@ -1075,17 +1123,6 @@ export class Agent<Context = any> {
       this.state.lastResult = result
     } finally {
       const stepEndTime = Date.now()
-
-      const actions = (modelOutput.action || []).map(action => ({ ...action }))
-
-      this.telemetry.capture(new AgentStepTelemetryEvent({
-        agentId: this.state.agentId,
-        step: this.state.nSteps,
-        actions,
-        consecutiveFailures: this.state.consecutiveFailures,
-        stepError: result.length > 0 ? result.map(r => r.error).filter(Boolean) as string[] : ['No result'],
-
-      }))
 
       if (result.length <= 0) {
         return
@@ -1499,15 +1536,6 @@ export class Agent<Context = any> {
    */
   private logAgentRun() {
     logger.info(`🚀 Starting task: ${this.task}`)
-    this.telemetry.capture(new AgentRunTelemetryEvent({
-      agentId: this.state.agentId,
-      useVision: this.settings.useVision,
-      task: this.task,
-      modelName: this.modelName,
-      chatModelLibrary: this.chatModelLibrary,
-      version: this.version,
-      source: this.source,
-    }))
   }
 
   addNewTask(task: string) {

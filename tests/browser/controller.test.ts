@@ -321,8 +321,7 @@ describe('controllerIntegration', () => {
       // If successful, verify the result
       expect(result).toBeInstanceOf(Object)
       expect(result.extractedContent).toContain('Input')
-    }
-    catch (e: any) {
+    } catch (e: any) {
       // If it fails due to DOM issues, that's expected in a test environment
       expect(e.message).toMatch(/Element index|does not exist/)
     }
@@ -1355,9 +1354,7 @@ describe('controllerIntegration', () => {
     // Verify we found a clickable element
     expect(buttonIndex, `Could not find clickable element in selector map. Available elements: ${
       Object.entries(selectorMap).map(([idx, element]) => `${idx}: ${element.tagName}`).join(', ')
-    }`).not.toBeNull(
-
-    )
+    }`).not.toBeNull()
 
     // Define expected test data
     const expectedButtonText = 'Button 1'
