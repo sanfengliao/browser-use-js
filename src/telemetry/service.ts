@@ -82,6 +82,20 @@ export class ProductTelemetry {
     this.directCapture(event)
   }
 
+  flush() {
+    if (!this.postHogClient) {
+      logger.debug('PostHog client not available, skipping flush.')
+      return
+    }
+
+    try {
+      this.postHogClient.flush()
+      logger.debug('PostHog client telemetry queue flushed.')
+    } catch (e) {
+      logger.error(`Failed to flush telemetry events: ${e}`)
+    }
+  }
+
   private directCapture(event: BaseTelemetryEvent): void {
     /**
      * Should not be thread blocking because posthog magically handles it

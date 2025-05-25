@@ -39,7 +39,7 @@ export interface AgentEventParams {
   source: string
   actionErrors: (string | undefined)[]
   actionHistory: (Record<string, any>[] | undefined)[]
-  urlVisited: string[]
+  urlVisited: (string | undefined)[]
 
   // end details
   steps: number
@@ -64,7 +64,7 @@ export class AgentTelemetryEvent extends BaseTelemetryEvent {
   source: string
   actionErrors: (string | undefined)[]
   actionHistory: (Record<string, any>[] | undefined)[]
-  urlVisited: string[]
+  urlVisited: (string | undefined)[]
 
   // end details
   steps: number

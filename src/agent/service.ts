@@ -251,6 +251,8 @@ export class Agent<Context = any> {
 
   private isInitialized = false
 
+  forceExitTelemetryLogged = false
+
   /**
    * Initialize an Agent instance
    * @param params Agent parameters
@@ -660,9 +662,21 @@ export class Agent<Context = any> {
     onStepEnd?: AgentHook
   } = {}) {
     await this.init()
+    this.forceExitTelemetryLogged = false
+
+    const onForceExitLogTelemetry = () => {
+      this.logAgentEvent(maxSteps, 'Force SIGINT: Cancelled by user')
+
+      if (this.telemetry.flush) {
+        this.telemetry.flush()
+      }
+
+      this.forceExitTelemetryLogged = true
+    }
     const signalHandler = new SignalHandler({
       pauseCallback: () => this.pause(),
       resumeCallback: () => this.resume(),
+      customExitCallback: onForceExitLogTelemetry,
       exitOnSecondInt: true,
     })
 
@@ -757,11 +771,15 @@ export class Agent<Context = any> {
       agentRunError = String(agentRunError)
     } finally {
       signalHandler.unregister()
-      try {
-        this.logAgentEvent(maxSteps, agentRunError)
-        logger.info('Agent run telemetry logged.')
-      } catch (error) {
-        logger.error(`Failed to log telemetry event: ${error}`)
+      if (!this.forceExitTelemetryLogged) {
+        try {
+          this.logAgentEvent(maxSteps, agentRunError)
+          logger.info('Agent run telemetry logged.')
+        } catch (error) {
+          logger.error(`Failed to log telemetry event: ${error}`)
+        }
+      } else {
+        logger.info('Telemetry for force exit (SIGINT) was logged by custom exit callback.')
       }
 
       // TODO: save playwright script
@@ -861,7 +879,7 @@ export class Agent<Context = any> {
       finalResultResponse: finalResult,
       errorMessage: agentRunError,
       source: this.source,
-      urlVisited: [],
+      urlVisited: this.state.history.urls(),
     }))
   }
 

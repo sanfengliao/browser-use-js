@@ -388,16 +388,16 @@ export class BrowserContext {
         // @ts-expect-error
         return window[visibilityFuncName]
 
-      // --- Method 3: pointermove events (may be fired by agent if we implement AI hover movements) ---
-      // Use a throttled handler to avoid excessive calls
-      // let lastMove = 0;
-      // window.addEventListener('pointermove', () => {
-      //  const now = Date.now();
-      //  if (now - lastMove > 1000) {  // Throttle to once per second
-      //    lastMove = now;
-      //    window.${visibilityFuncName}({ source: 'pointermove' });
-      //  }
-      // });
+        // --- Method 3: pointermove events (may be fired by agent if we implement AI hover movements) ---
+        // Use a throttled handler to avoid excessive calls
+        // let lastMove = 0;
+        // window.addEventListener('pointermove', () => {
+        //  const now = Date.now();
+        //  if (now - lastMove > 1000) {  // Throttle to once per second
+        //    lastMove = now;
+        //    window.${visibilityFuncName}({ source: 'pointermove' });
+        //  }
+        // });
       }, visibilityFuncName)
 
       // re-add listener to the page for when it navigates to a new url, because previous listeners will be cleared
@@ -1306,6 +1306,20 @@ export class BrowserContext {
   }
 
   /**
+   * Checks if an element is visible on the page.
+   * We use our own implementation instead of relying solely on Playwright's is_visible() because
+   * of edge cases with CSS frameworks like Tailwind. When elements use Tailwind's 'hidden' class,
+   * the computed style may return display as '' (empty string) instead of 'none', causing Playwright
+   * to incorrectly consider hidden elements as visible. By additionally checking the bounding box
+   * dimensions, we catch elements that have zero width/height regardless of how they were hidden.
+   */
+  private async isVisible(element: ElementHandle) {
+    const isHidden = await element.isHidden()
+    const box = await element.boundingBox()
+    return !isHidden && box && box.width > 0 && box.height > 0
+  }
+
+  /**
    * Returns a base64 encoded screenshot of the current page.
    * @param fullPage - Whether to take a screenshot of the full page or just the viewport
    * @returns A base64 encoded string of the screenshot
@@ -1342,7 +1356,7 @@ export class BrowserContext {
       const page = await this.getAgentCurrentPage()
       await page.evaluate(() => {
         try {
-        // Remove the highlight container and all its contents
+          // Remove the highlight container and all its contents
           const container = document.getElementById('playwright-highlight-container')
           if (container) {
             container.remove()
@@ -1596,8 +1610,8 @@ export class BrowserContext {
         // Try to scroll into view if hidden
         const elementHandle = await currentFrame.$(cssSelector)
         if (elementHandle) {
-          const isHidden = await elementHandle.isHidden()
-          if (!isHidden) {
+          const isVisible = await this.isVisible(elementHandle)
+          if (isVisible) {
             await elementHandle.scrollIntoViewIfNeeded()
           }
           return elementHandle
@@ -1621,8 +1635,8 @@ export class BrowserContext {
       // Use XPath to locate the element
       const elementHandle = await currentFrame.$(`xpath=${xpath}`)
       if (elementHandle) {
-        const isHidden = await elementHandle.isHidden()
-        if (!isHidden) {
+        const isVisible = await this.isVisible(elementHandle)
+        if (isVisible) {
           await elementHandle.scrollIntoViewIfNeeded()
         }
         return elementHandle
@@ -1645,8 +1659,8 @@ export class BrowserContext {
       // Use CSS selector to locate the element
       const elementHandle = await currentFrame.$(cssSelector)
       if (elementHandle) {
-        const isHidden = await elementHandle.isHidden()
-        if (!isHidden) {
+        const isVisible = await this.isVisible(elementHandle)
+        if (isVisible) {
           await elementHandle.scrollIntoViewIfNeeded()
         }
         return elementHandle
@@ -1682,7 +1696,7 @@ export class BrowserContext {
       // considering only visible elements
       const visibleElements = []
       for (const el of elements) {
-        if (await el.isVisible()) {
+        if (await this.isVisible(el)) {
           visibleElements.push(el)
         }
       }
@@ -1704,8 +1718,8 @@ export class BrowserContext {
         elementHandle = visibleElements[0]
       }
 
-      const isHidden = await elementHandle.isHidden()
-      if (!isHidden) {
+      const isVisible = await this.isVisible(elementHandle)
+      if (!isVisible) {
         await elementHandle.scrollIntoViewIfNeeded()
       }
       return elementHandle
@@ -1736,8 +1750,8 @@ export class BrowserContext {
       // Ensure element is ready for input
       try {
         await elementHandle.waitForElementState('stable', { timeout: 1000 })
-        const isHidden = await elementHandle.isHidden()
-        if (!isHidden) {
+        const isVisible = await this.isVisible(elementHandle)
+        if (isVisible) {
           await elementHandle.scrollIntoViewIfNeeded({ timeout: 1000 })
         }
       } catch (e) {

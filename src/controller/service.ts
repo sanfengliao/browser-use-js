@@ -488,8 +488,16 @@ export class Controller<Context = any> {
 
           for (const locator of locators) {
             try {
-              // First check if element exists and is visible
-              if (await locator.count() > 0 && await locator.first().isVisible()) {
+              if (await locator.count() === 0) {
+                continue
+              }
+
+              const element = locator.first()
+
+              const isVisible = await element.isVisible()
+              const box = await element.boundingBox()
+
+              if (isVisible && box && box.width > 0 && box.height > 0) {
                 await locator.first().scrollIntoViewIfNeeded()
                 await new Promise(resolve => setTimeout(resolve, 500)) // Wait for scroll to complete
                 const msg = `🔍 Scrolled to text: ${text}`

@@ -324,6 +324,7 @@ export class Browser {
       && this.config.newContextConfig
       && this.config.newContextConfig.windowWidth
       && this.config.newContextConfig.windowHeight
+      && !this.config.newContextConfig.noViewport
     ) {
       screenSize = {
         width: this.config.newContextConfig.windowWidth,
