@@ -1,9 +1,9 @@
 import type { BrowserContext, BrowserType, Page, Browser as PlaywrightBrowser } from 'playwright'
-import type { BrowserState } from './view'
+import type { BrowserStateSummary } from './views'
 import axios from 'axios'
 import { chromium } from 'playwright'
 import { Browser } from './browser'
-import { TabInfo } from './view'
+import { TabInfo } from './views'
 
 // 配置日志记录器
 const logger = {
@@ -27,7 +27,7 @@ export class DolphinBrowser extends Browser {
   private keepOpen: boolean
   private pages: Page[]
   private session?: DolphinBrowser | null
-  private cachedState?: BrowserState
+  private cachedState?: BrowserStateSummary
 
   constructor(headless: boolean = false, keepOpen: boolean = false) {
     super()
@@ -334,7 +334,7 @@ export class DolphinBrowser extends Browser {
    * @returns The current state of the browser
    * @throws Error if no active page is available
    */
-  async getCurrentState(): Promise<BrowserState> {
+  async getCurrentState(): Promise<BrowserStateSummary> {
     if (!this.page) {
       throw new Error('No active page')
     }
@@ -347,7 +347,7 @@ export class DolphinBrowser extends Browser {
     const state = {
       url: this.page.url(),
       tabs: await this.getTabsInfo(),
-    } as BrowserState
+    } as BrowserStateSummary
 
     // Cache and return the state
     this.cachedState = state

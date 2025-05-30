@@ -25,7 +25,7 @@ export class TabInfo implements ITabInfo {
 }
 
 // BrowserState 类
-export interface BrowserState extends DOMState {
+export interface BrowserStateSummary extends DOMState {
   url: string
   title: string
   tabs: TabInfo[]

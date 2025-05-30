@@ -6,7 +6,7 @@ import type { DOMElementNode, SelectorMap } from '@/dom/views'
 
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import fs from 'node:fs/promises'
-import { BrowserStateHistory } from '@/browser/view'
+import { BrowserStateHistory } from '@/browser/views'
 import { ActionModel } from '@/controller/registry/view'
 import { DOMHistoryElement } from '@/dom/history_tree_processor/view'
 import { v4 as uuidv4 } from 'uuid'

@@ -1,6 +1,6 @@
 import { Browser } from '@/browser/browser'
 import { BrowserContext } from '@/browser/context'
-import { BrowserState, BrowserStateHistory } from '@/browser/view'
+import { BrowserStateSummary, BrowserStateHistory } from '@/browser/views'
 import { ActionModel, ActionPayload, ExecuteActions } from '@/controller/registry/view'
 import { Controller } from '@/controller/service'
 import { HistoryTreeProcessor } from '@/dom/history_tree_processor/service'
@@ -91,7 +91,7 @@ interface AgentParams<Context = any> {
 
   /** Callback for registering new steps */
   registerNewStepCallback?: (
-    state: BrowserState,
+    state: BrowserStateSummary,
     output: AgentOutput,
     stepNumber: number
   ) => void | Promise<void>
@@ -228,7 +228,7 @@ export class Agent<Context = any> {
 
   // Callbacks
   private registerNewStepCallback?: (
-    state: BrowserState,
+    state: BrowserStateSummary,
     output: AgentOutput,
     stepNumber: number
   ) => void | Promise<void>
@@ -997,7 +997,7 @@ export class Agent<Context = any> {
 
   async step(stepInfo?: AgentStepInfo) {
     logger.info(`📍 Step ${this.state.nSteps}`)
-    let state: BrowserState | undefined
+    let state: BrowserStateSummary | undefined
     let modelOutput!: AgentOutput
     let result: ActionResult[] = []
     const stepStartTime = Date.now()
@@ -1171,7 +1171,7 @@ export class Agent<Context = any> {
     state,
     result,
     metadata,
-  }: { modelOutput: AgentOutput, state: BrowserState, result: ActionResult[], metadata: StepMetadata }) {
+  }: { modelOutput: AgentOutput, state: BrowserStateSummary, result: ActionResult[], metadata: StepMetadata }) {
     // Get interacted elements from model output and state selector map
     let interactedElements: (DOMHistoryElement | undefined)[]
 
@@ -1650,7 +1650,7 @@ export class Agent<Context = any> {
    * Update action indices based on current page state.
    * Returns updated action or None if element cannot be found.
    */
-  updateActionIndices(historicalElement: DOMHistoryElement | undefined, action: ActionModel, currentState: BrowserState) {
+  updateActionIndices(historicalElement: DOMHistoryElement | undefined, action: ActionModel, currentState: BrowserStateSummary) {
     if (!historicalElement || !currentState.elementTree) {
       return action
     }

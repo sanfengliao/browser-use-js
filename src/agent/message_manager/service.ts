@@ -1,4 +1,4 @@
-import { BrowserState } from '@/browser/view'
+import { BrowserStateSummary } from '@/browser/views'
 import { Logger } from '@/logger'
 import { timeExecutionSync } from '@/utils'
 import { ToolCall } from '@langchain/core/dist/messages/tool'
@@ -216,7 +216,7 @@ export class MessageManager {
       stepInfo,
       useVision = true,
     }: {
-      state: BrowserState
+      state: BrowserStateSummary
       result?: ActionResult[]
       stepInfo?: AgentStepInfo
       useVision: boolean

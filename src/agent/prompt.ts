@@ -1,4 +1,4 @@
-import type { BrowserState } from '@/browser/view'
+import type { BrowserStateSummary } from '@/browser/views'
 import type { ActionResult, AgentStepInfo } from './views'
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -99,7 +99,7 @@ export class SystemPrompt {
  */
 export class AgentMessagePrompt {
   /** Current browser state */
-  private state: BrowserState
+  private state: BrowserStateSummary
   /** Results from previous actions */
   private result?: ActionResult[]
   /** Attributes to include in element descriptions */
@@ -122,7 +122,7 @@ export class AgentMessagePrompt {
       includeAttributes,
       stepInfo,
     }: {
-      state: BrowserState
+      state: BrowserStateSummary
       result?: ActionResult[]
       includeAttributes?: string[]
       stepInfo?: AgentStepInfo

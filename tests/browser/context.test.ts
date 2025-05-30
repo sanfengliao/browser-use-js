@@ -1,4 +1,4 @@
-import type { BrowserState } from '@/browser/view'
+import type { BrowserStateSummary } from '@/browser/views'
 import { BrowserContext, BrowserContextConfig } from '@/browser/context'
 import { DOMElementNode } from '@/dom/views'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -277,7 +277,7 @@ describe('browserContext tests', () => {
     const dummySession = {
       context: dummyContext,
       currentPage: page1,
-      cachedState: null as any as BrowserState,
+      cachedState: null as any as BrowserStateSummary,
     }
 
     // Create a dummy browser mock.

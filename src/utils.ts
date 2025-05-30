@@ -1,5 +1,6 @@
 import EventEmitter from 'node:events'
 import readline from 'node:readline'
+import { minimatch } from 'minimatch'
 import { Logger } from './logger' // 假设你有一个日志模块
 import { AnyFunction } from './type'
 
@@ -405,3 +406,123 @@ export function isSubset<T>(setA: Set<T>, setB: Set<T>): boolean {
 }
 
 export const sleep = (second: number) => new Promise(resolve => setTimeout(resolve, second * 1000))
+
+export function matchUrlWithDomainPattern(url: string, domainPattern: string, logWarnings: boolean = false): boolean {
+  /**
+   * Check if a URL matches a domain pattern. SECURITY CRITICAL.
+   *
+   * Supports optional glob patterns and schemes:
+   * - *.example.com will match sub.example.com and example.com
+   * - *google.com will match google.com, agoogle.com, and www.google.com
+   * - http*://example.com will match http://example.com, https://example.com
+   * - chrome-extension://* will match chrome-extension://aaaaaaaaaaaa and chrome-extension://bbbbbbbbbbbbb
+   *
+   * When no scheme is specified, https is used by default for security.
+   * For example, 'example.com' will match 'https://example.com' but not 'http://example.com'.
+   *
+   * Note: about:blank must be handled at the callsite, not inside this function.
+   *
+   * Args:
+   *     url: The URL to check
+   *     domainPattern: Domain pattern to match against
+   *     logWarnings: Whether to log warnings about unsafe patterns
+   *
+   * Returns:
+   *     bool: True if the URL matches the pattern, False otherwise
+   */
+  try {
+    // Note: about:blank should be handled at the callsite, not here
+    if (url === 'about:blank') {
+      return false
+    }
+
+    const parsedUrl = new URL(url)
+
+    // Extract only the hostname and scheme components
+    const scheme = parsedUrl.protocol ? parsedUrl.protocol.slice(0, -1).toLowerCase() : ''
+    const domain = parsedUrl.hostname ? parsedUrl.hostname.toLowerCase() : ''
+
+    if (!scheme || !domain) {
+      return false
+    }
+
+    // Normalize the domain pattern
+    domainPattern = domainPattern.toLowerCase()
+
+    // Handle pattern with scheme
+    let patternScheme: string
+    let patternDomain: string
+
+    if (domainPattern.includes('://')) {
+      [patternScheme, patternDomain] = domainPattern.split('://', 2)
+    } else {
+      patternScheme = 'https' // Default to matching only https for security
+      patternDomain = domainPattern
+    }
+
+    // Handle port in pattern (we strip ports from patterns since we already
+    // extracted only the hostname from the URL)
+    if (patternDomain.includes(':') && !patternDomain.startsWith(':')) {
+      patternDomain = patternDomain.split(':', 2)[0]
+    }
+
+    // If scheme doesn't match, return False
+    if (!minimatch(scheme, patternScheme)) {
+      return false
+    }
+
+    // Check for exact match
+    if (patternDomain === '*' || domain === patternDomain) {
+      return true
+    }
+
+    // Handle glob patterns
+    if (patternDomain.includes('*')) {
+      // Check for unsafe glob patterns
+      // First, check for patterns like *.*.domain which are unsafe
+      if ((patternDomain.match(/\*\./g) || []).length > 1 || (patternDomain.match(/\.\*/g) || []).length > 1) {
+        if (logWarnings) {
+          console.error(`⛔️ Multiple wildcards in pattern=[${domainPattern}] are not supported`)
+        }
+        return false // Don't match unsafe patterns
+      }
+
+      // Check for wildcards in TLD part (example.*)
+      if (patternDomain.endsWith('.*')) {
+        if (logWarnings) {
+          console.error(`⛔️ Wildcard TLDs like in pattern=[${domainPattern}] are not supported for security`)
+        }
+        return false // Don't match unsafe patterns
+      }
+
+      // Then check for embedded wildcards
+      const bareDomain = patternDomain.replace(/\*\./g, '')
+      if (bareDomain.includes('*')) {
+        if (logWarnings) {
+          console.error(`⛔️ Only *.domain style patterns are supported, ignoring pattern=[${domainPattern}]`)
+        }
+        return false // Don't match unsafe patterns
+      }
+
+      // Special handling so that *.google.com also matches bare google.com
+      if (patternDomain.startsWith('*.')) {
+        const parentDomain = patternDomain.slice(2)
+        if (domain === parentDomain || minimatch(domain, parentDomain)) {
+          return true
+        }
+      }
+
+      // Normal case: match domain against pattern
+      if (minimatch(domain, patternDomain)) {
+        return true
+      }
+    }
+
+    return false
+  } catch (e) {
+    if (logWarnings) {
+      console.error(`⛔️ Error matching URL ${url} with pattern ${domainPattern}: ${e instanceof Error ? e.constructor.name : 'Error'}: ${e instanceof Error ? e.message : e}`)
+    }
+    return false
+  }
+}

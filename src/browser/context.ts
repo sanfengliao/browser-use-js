@@ -2,7 +2,7 @@ import type { SelectorMap } from '@/dom/views'
 import type { BrowserContextOptions, Cookie, ElementHandle, FrameLocator, Geolocation, HTTPCredentials, Page, Browser as PlaywrightBrowser, BrowserContext as PlaywrightBrowserContext, Request, Response } from 'playwright'
 
 import type { Browser } from './browser'
-import type { BrowserState } from './view'
+import type { BrowserStateSummary } from './views'
 import * as crypto from 'node:crypto'
 import fs from 'node:fs'
 import * as path from 'node:path'
@@ -12,7 +12,7 @@ import { DOMElementNode } from '@/dom/views'
 import { timeExecutionAsync, timeExecutionSync } from '@/utils'
 import { v4 as uuidV4 } from 'uuid'
 import { Logger } from '../logger'
-import { BrowserError, TabInfo, URLNotAllowedError } from './view'
+import { BrowserError, TabInfo, URLNotAllowedError } from './views'
 
 const logger = Logger.getLogger(import.meta.url)
 
@@ -140,7 +140,7 @@ interface CachedStateClickableElementsHashes {
 
 interface BrowserSession {
   context: PlaywrightBrowserContext
-  cachedState?: BrowserState
+  cachedState?: BrowserStateSummary
   cachedStateClickableElementsHashes?: CachedStateClickableElementsHashes
 }
 
@@ -161,7 +161,7 @@ export class BrowserContext {
   agentCurrentPage?: Page // The tab the agent intends to interact with
   humanCurrentPage?: Page // The tab currently shown in the browser UI
 
-  currentState?: BrowserState
+  currentState?: BrowserStateSummary
 
   pageEventHandler?: (page: Page) => void
   constructor(
@@ -1175,7 +1175,7 @@ export class BrowserContext {
    * @returns The current browser state
    */
   @timeExecutionAsync('--get_state') // This decorator might need to be updated to handle async
-  async getState(cacheClickableElementsHashes: boolean): Promise<BrowserState> {
+  async getState(cacheClickableElementsHashes: boolean): Promise<BrowserStateSummary> {
     await this.waitForPageAndFramesLoad()
     const session = await this.getSession()
     const updatedState = await this.getUpdatedState()
@@ -1222,7 +1222,7 @@ export class BrowserContext {
    * @param focusElement - Index of element to focus on
    * @returns Updated browser state
    */
-  private async getUpdatedState(focusElement: number = -1): Promise<BrowserState> {
+  private async getUpdatedState(focusElement: number = -1): Promise<BrowserStateSummary> {
     const session = await this.getSession()
 
     let page: Page

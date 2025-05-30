@@ -2,6 +2,7 @@
 import type {
   BrowserContextOptions,
   Geolocation,
+  HTTPCredentials,
   ViewportSize,
 } from 'playwright'
 import { execSync } from 'node:child_process'
@@ -244,35 +245,15 @@ function validateCliArg(arg: string): string {
 
 // ===== Enum definitions =====
 
-export enum ColorScheme {
-  LIGHT = 'light',
-  DARK = 'dark',
-  NO_PREFERENCE = 'no-preference',
-  NULL = 'null',
-}
+export type ColorScheme = BrowserContextOptions['colorScheme']
 
-export enum Contrast {
-  NO_PREFERENCE = 'no-preference',
-  MORE = 'more',
-  NULL = 'null',
-}
+export type Contrast = BrowserContextOptions['contrast']
 
-export enum ReducedMotion {
-  REDUCE = 'reduce',
-  NO_PREFERENCE = 'no-preference',
-  NULL = 'null',
-}
+export type ReducedMotion = BrowserContextOptions['reducedMotion']
 
-export enum ForcedColors {
-  ACTIVE = 'active',
-  NONE = 'none',
-  NULL = 'null',
-}
+export type ForcedColors = BrowserContextOptions['forcedColors']
 
-export enum ServiceWorkers {
-  ALLOW = 'allow',
-  BLOCK = 'block',
-}
+export type ServiceWorkers = BrowserContextOptions['serviceWorkers']
 
 export enum RecordHarContent {
   OMIT = 'omit',
@@ -429,22 +410,97 @@ export interface BrowserLaunchPersistentContextArgs extends BrowserLaunchArgs, B
   userDataDir?: string
 }
 
-export interface BrowserProfile extends BrowserConnectArgs, BrowserLaunchPersistentContextArgs, BrowserLaunchArgs, BrowserNewContextArgs {
-  /**
-   * A BrowserProfile is a static collection of kwargs that get passed to:
-   * - BrowserType.launch(**BrowserLaunchArgs)
-   * - BrowserType.connect(**BrowserConnectArgs)
-   * - BrowserType.connect_over_cdp(**BrowserConnectArgs)
-   * - BrowserType.launch_persistent_context(**BrowserLaunchPersistentContextArgs)
-   * - BrowserContext.new_context(**BrowserNewContextArgs)
-   * - BrowserSession(**BrowserProfile)
-   */
+/**
+ * A BrowserProfile is a static collection of kwargs that get passed to:
+ * - BrowserType.launch(**BrowserLaunchArgs)
+ * - BrowserType.connect(**BrowserConnectArgs)
+ * - BrowserType.connect_over_cdp(**BrowserConnectArgs)
+ * - BrowserType.launch_persistent_context(**BrowserLaunchPersistentContextArgs)
+ * - BrowserContext.new_context(**BrowserNewContextArgs)
+ * - BrowserSession(**BrowserProfile)
+ */
+export class BrowserProfile implements BrowserConnectArgs, BrowserLaunchPersistentContextArgs, BrowserLaunchArgs, BrowserNewContextArgs {
+  // Default values with TypeScript comments from descriptions
+  acceptDownloads = true
+  offline = false
+  strictSelectors = false
 
-  // custom options we provide that aren't native playwright kwargs
+  // Security options
+  proxy?: BrowserContextOptions['proxy']
+  /** Browser permissions to grant (see playwright docs for valid permissions). */
+  permissions = ['clipboard-read', 'clipboard-write', 'notifications']
+  bypassCsp = false
+  clientCertificates?: BrowserContextOptions['clientCertificates'] = []
+  extraHttpHeaders: Record<string, string> = {}
+  httpCredentials?: HTTPCredentials
+  ignoreHttpsErrors = false
+  javaScriptEnabled = true
+  baseUrl?: string
+  serviceWorkers: ServiceWorkers = 'allow'
+
+  // Viewport options
+  userAgent?: string
+  screen?: ViewportSize
+  viewport?: ViewportSize
+  noViewport?: boolean
+  deviceScaleFactor?: number
+  isMobile?: boolean
+  hasTouch?: boolean
+  locale?: string
+  geolocation?: Geolocation
+  timezoneId?: string
+  colorScheme: ColorScheme = 'light'
+  contrast: Contrast = 'no-preference'
+  reducedMotion: ReducedMotion = 'no-preference'
+  forcedColors: ForcedColors = 'none'
+
+  // Recording Options
+  recordHarContent = RecordHarContent.EMBED
+  recordHarMode = RecordHarMode.FULL
+  recordHarOmitContent = false
+  recordHarPath?: string
+  recordHarUrlFilter?: string | RegExp
+  recordVideoDir?: string
+  recordVideoSize?: ViewportSize
+
+  // BrowserConnectArgs
+  headers?: Record<string, string>
+  slowMo = 0
+  timeout = 30000
+
+  // BrowserLaunchArgs
+  env?: Record<string, string | number | boolean>
+  executablePath?: string
+  headless?: boolean
+  /** List of *extra* CLI args to pass to the browser when launching. */
+  args: string[] = []
+  /** List of default CLI args to stop playwright from applying */
+  ignoreDefaultArgs: string[] | boolean = ['--enable-automation', '--disable-extensions']
+  channel = BrowserChannel.CHROMIUM
+  /** Whether to enable Chromium sandboxing (recommended unless inside Docker). */
+  chromiumSandbox = !IN_DOCKER
+  devtools = false
+  proxy2?: BrowserContextOptions['proxy'] // Note: This might conflict with proxy above
+  downloadsPath?: string
+  tracesDir?: string
+  /** Whether playwright should swallow SIGHUP signals and kill the browser. */
+  handleSighup = true
+  /** Whether playwright should swallow SIGINT signals and kill the browser. */
+  handleSigint = false
+  /** Whether playwright should swallow SIGTERM signals and kill the browser. */
+  handleSigterm = false
+
+  // BrowserNewContextArgs
+  storageState?: BrowserContextOptions['storageState']
+
+  // BrowserLaunchPersistentContextArgs
+  userDataDir = path.join(BROWSERUSE_PROFILES_DIR, 'default')
+
+  // Custom options
   /** Disable browser security features. */
-  disableSecurity?: boolean
+  disableSecurity = false
   /** Enable deterministic rendering flags. */
-  deterministicRendering?: boolean
+  deterministicRendering = false
   /** List of allowed domains for navigation e.g. ["*.google.com", "https://example.com", "chrome-extension://*"] */
   allowedDomains?: string[]
   /** Keep browser alive after agent run. */
@@ -452,85 +508,13 @@ export interface BrowserProfile extends BrowserConnectArgs, BrowserLaunchPersist
   /** Window size to use for the browser when headless=False. */
   windowSize?: ViewportSize
   /** Window position to use for the browser x,y from the top left when headless=False. */
-  windowPosition?: ViewportSize
+  windowPosition?: ViewportSize = { width: 0, height: 0 }
 
-  // --- Page load/wait timings ---
+  // Page load/wait timings
   /** Default page navigation timeout. */
   defaultNavigationTimeout?: number
   /** Default playwright call timeout. */
   defaultTimeout?: number
-  /** Minimum time to wait before capturing page state. */
-  minimumWaitPageLoadTime?: number
-  /** Time to wait for network idle. */
-  waitForNetworkIdlePageLoadTime?: number
-  /** Maximum time to wait for page load. */
-  maximumWaitPageLoadTime?: number
-  /** Time to wait between actions. */
-  waitBetweenActions?: number
-
-  // --- UI/viewport/DOM ---
-  /** Include dynamic attributes in selectors. */
-  includeDynamicAttributes?: boolean
-  /** Highlight interactive elements on the page. */
-  highlightElements?: boolean
-  /** Viewport expansion in pixels for LLM context. */
-  viewportExpansion?: number
-
-  profileDirectory?: string
-
-  /** Directory for video recordings. */
-  saveRecordingPath?: string
-  /** Directory for saving downloads. */
-  saveDownloadsPath?: string
-  /** Directory for saving HAR files. */
-  saveHarPath?: string
-  /** Directory for saving trace files. */
-  tracePath?: string
-
-  /** File to save cookies to. DEPRECATED, use `storage_state` instead. */
-  cookiesFile?: string
-
-  /** Directory for downloads. */
-  downloadsDir?: string
-}
-
-export class BrowserProfileImpl implements BrowserProfile {
-  // Default values with TypeScript comments from descriptions
-  acceptDownloads = true
-  offline = false
-  strictSelectors = false
-  /** Browser permissions to grant (see playwright docs for valid permissions). */
-  permissions = ['clipboard-read', 'clipboard-write', 'notifications']
-  bypassCsp = false
-  clientCertificates = []
-  extraHttpHeaders: Record<string, string> = {}
-  ignoreHttpsErrors = false
-  javaScriptEnabled = true
-  serviceWorkers = ServiceWorkers.ALLOW
-  colorScheme = ColorScheme.LIGHT
-  contrast = Contrast.NO_PREFERENCE
-  reducedMotion = ReducedMotion.NO_PREFERENCE
-  forcedColors = ForcedColors.NONE
-  recordHarContent = RecordHarContent.EMBED
-  recordHarMode = RecordHarMode.FULL
-  recordHarOmitContent = false
-  slowMo = 0
-  timeout = 30000
-  channel = BrowserChannel.CHROMIUM
-  /** Whether to enable Chromium sandboxing (recommended unless inside Docker). */
-  chromiumSandbox = !IN_DOCKER
-  devtools = false
-  /** Whether playwright should swallow SIGHUP signals and kill the browser. */
-  handleSighup = true
-  /** Whether playwright should swallow SIGINT signals and kill the browser. */
-  handleSigint = false
-  /** Whether playwright should swallow SIGTERM signals and kill the browser. */
-  handleSigterm = false
-  userDataDir = path.join(BROWSERUSE_PROFILES_DIR, 'default')
-  /** Disable browser security features. */
-  disableSecurity = false
-  /** Enable deterministic rendering flags. */
-  deterministicRendering = false
   /** Minimum time to wait before capturing page state. */
   minimumWaitPageLoadTime = 0.25
   /** Time to wait for network idle. */
@@ -539,27 +523,30 @@ export class BrowserProfileImpl implements BrowserProfile {
   maximumWaitPageLoadTime = 5.0
   /** Time to wait between actions. */
   waitBetweenActions = 0.5
+
+  // UI/viewport/DOM
   /** Include dynamic attributes in selectors. */
   includeDynamicAttributes = true
   /** Highlight interactive elements on the page. */
   highlightElements = true
   /** Viewport expansion in pixels for LLM context. */
   viewportExpansion = 500
+
   profileDirectory = 'Default'
+
+  // File paths
+  /** Directory for video recordings. */
+  saveRecordingPath?: string
+  /** Directory for saving downloads. */
+  saveDownloadsPath?: string
+  /** Directory for saving HAR files. */
+  saveHarPath?: string
+  /** Directory for saving trace files. */
+  tracePath?: string
+  /** File to save cookies to. DEPRECATED, use `storage_state` instead. */
+  cookiesFile?: string
   /** Directory for downloads. */
   downloadsDir = path.join(os.homedir(), '.config', 'browseruse', 'downloads')
-  /** List of *extra* CLI args to pass to the browser when launching. */
-  args: string[] = []
-  /** List of default CLI args to stop playwright from applying */
-  ignoreDefaultArgs: string[] | boolean = ['--enable-automation', '--disable-extensions']
-  /** Window position to use for the browser x,y from the top left when headless=False. */
-  windowPosition?: ViewportSize = { width: 0, height: 0 }
-  headless?: boolean
-  windowSize?: ViewportSize
-  screen?: ViewportSize
-  viewport?: ViewportSize
-  noViewport?: boolean
-  deviceScaleFactor: any
 
   getArgs(): string[] {
     const ignoreSet = Array.isArray(this.ignoreDefaultArgs) ? new Set(this.ignoreDefaultArgs) : new Set()
