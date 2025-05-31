@@ -1,11 +1,13 @@
-import { Browser, BrowserConfig } from '@/browser/browser'
 import { expect, it } from 'vitest'
+import { Browser, BrowserConfig } from '@/browser/browser'
 
 it('test_take_full_page_screenshot', { timeout: 0 }, async () => {
-  const browser = new Browser(new BrowserConfig({
-    headless: false,
-    disableSecurity: true,
-  }))
+  const browser = new Browser({
+    browserProfile: new BrowserConfig({
+      headless: false,
+      disableSecurity: true,
+    }),
+  })
   try {
     const context = await browser.newContext()
     const page = await context.getCurrentPage()
@@ -29,13 +31,10 @@ it('test_take_full_page_screenshot', { timeout: 0 }, async () => {
     // Test we can decode the base64 string
     try {
       Buffer.from(screenshotB64, 'base64')
-    }
-    catch (e) {
+    } catch (e) {
       throw new Error(`Failed to decode base64 screenshot: ${e}`)
     }
-  }
-
-  finally {
+  } finally {
     browser.close()
   }
 })

@@ -548,6 +548,24 @@ export class BrowserProfile implements BrowserConnectArgs, BrowserLaunchPersiste
   /** Directory for downloads. */
   downloadsDir = path.join(os.homedir(), '.config', 'browseruse', 'downloads')
 
+  constructor(init?: Partial<BrowserProfile>) {
+    // Initialize with provided values or defaults
+    Object.assign(this, init)
+
+    // Ensure userDataDir is absolute
+    if (this.userDataDir) {
+      this.userDataDir = path.resolve(this.userDataDir.replace('~', os.homedir()))
+    }
+
+    // Ensure downloadsDir is absolute
+    if (this.downloadsDir) {
+      this.downloadsDir = path.resolve(this.downloadsDir.replace('~', os.homedir()))
+    }
+
+    // Detect display configuration
+    this.detectDisplayConfiguration()
+  }
+
   getArgs(): string[] {
     const ignoreSet = Array.isArray(this.ignoreDefaultArgs) ? new Set(this.ignoreDefaultArgs) : new Set()
     const defaultArgs = this.ignoreDefaultArgs === true

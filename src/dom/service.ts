@@ -151,7 +151,7 @@ export class DomService {
 
       nodeMap[id] = node
 
-      if (node instanceof DOMElementNode && node.highlightIndex) {
+      if (node instanceof DOMElementNode && node.highlightIndex !== undefined) {
         selectorMap[node.highlightIndex] = node
       }
 

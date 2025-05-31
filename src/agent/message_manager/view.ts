@@ -1,7 +1,7 @@
 import type { BaseMessage } from '@langchain/core/dist/messages'
 import type { ToolCall } from '@langchain/core/dist/messages/tool'
 import type { AgentOutput } from '../views'
-import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/dist/messages'
+import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages'
 
 export class MessageMetadata {
   tokens: number
@@ -45,8 +45,7 @@ export class MessageHistory {
 
     if (position === undefined) {
       this.messages.push(managedMessage)
-    }
-    else {
+    } else {
       this.messages.splice(position, 0, managedMessage)
     }
 

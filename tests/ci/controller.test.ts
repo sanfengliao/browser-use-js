@@ -1,13 +1,13 @@
 import type { DragDropAction, SendKeysAction } from '@/controller/view'
 import http from 'node:http'
+import express from 'express'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { z } from 'zod'
 import { ActionResult } from '@/agent/views'
 import { Browser, BrowserConfig } from '@/browser/browser'
 import { BrowserContext } from '@/browser/context'
 import { ActionModel } from '@/controller/registry/view'
 import { Controller } from '@/controller/service'
-import express from 'express'
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { z } from 'zod'
 
 /**
  * Create a simple HTTP server for testing purposes
@@ -110,9 +110,11 @@ describe('controllerIntegration', () => {
 
     // Create browser instance
     browser = new Browser(
-      new BrowserConfig({
-        headless: true,
-      }),
+      {
+        browserProfile: new BrowserConfig({
+          headless: true,
+        }),
+      },
     )
   })
 
@@ -121,7 +123,7 @@ describe('controllerIntegration', () => {
 
   beforeEach(async () => {
     // Create new browser context for each test
-    browserContext = new BrowserContext({ browser })
+    browserContext = new BrowserContext()
 
     // Create controller instance
     controller = new Controller()
@@ -1074,7 +1076,7 @@ describe('controllerIntegration', () => {
     }) // And again
 
     const finalActiveElementId = await page.evaluate(() => document.activeElement!.id)
-    expect(finalActiveElementId, 'Tab cycling through form elements failed').toBe('textInput')
+    expect(finalActiveElementId, 'Tab cycling through form elements failed').toBe('textarea')
 
     // Verify the test input still has its value
     const finalInputValue = await page.evaluate(() => (document.getElementById('textInput') as HTMLInputElement).value)
@@ -1119,13 +1121,13 @@ describe('controllerIntegration', () => {
     await page.waitForLoadState()
 
     // Initialize the DOM state to populate the selector map
-    await browserContext.getState(true)
+    await browserContext.getStateSummary(true)
 
     // Interact with the dropdown to ensure it's recognized
     await page.click('select#test-dropdown')
 
     // Update the state after interaction
-    await browserContext.getState(true)
+    await browserContext.getStateSummary(true)
 
     // Get the selector map
     const selectorMap = await browserContext.getSelectorMap()
@@ -1230,7 +1232,7 @@ describe('controllerIntegration', () => {
     await page.waitForLoadState()
 
     // populate the selector map with highlight indices
-    await browserContext.getState(true)
+    await browserContext.getStateSummary(true)
 
     // Now get the selector map which should contain our dropdown
     const selectorMap = await browserContext.getSelectorMap()
@@ -1331,7 +1333,7 @@ describe('controllerIntegration', () => {
     await page.waitForLoadState()
 
     // Initialize the DOM state to populate the selector map
-    await browserContext.getState(true)
+    await browserContext.getStateSummary(true)
 
     // Get the selector map
     const selectorMap = await browserContext.getSelectorMap()

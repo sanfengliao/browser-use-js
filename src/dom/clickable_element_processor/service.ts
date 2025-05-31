@@ -21,7 +21,7 @@ export class ClickableElementProcessor {
     const clickableElements: DOMElementNode[] = []
     for (const child of domElement.children) {
       if (child instanceof DOMElementNode) {
-        if (child.highlightIndex) {
+        if (child.highlightIndex !== undefined) {
           clickableElements.push(child)
         }
 

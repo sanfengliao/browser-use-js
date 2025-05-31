@@ -119,7 +119,7 @@ export class Controller<Context = any> {
       execute: async ({ seconds }) => {
         const msg = `🕒  Waiting for ${seconds} seconds`
         logger.info(msg)
-        await sleep(seconds * 1000)
+        await sleep(seconds)
         return {
           extractedContent: msg,
           includeInMemory: true,

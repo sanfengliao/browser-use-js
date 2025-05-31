@@ -39,6 +39,10 @@ function logGlobWarning(domain: string, glob: string): void {
   }
 }
 
+export {
+  BrowserProfile,
+}
+
 /**
  * Truncate/pretty-print a URL with a maximum length, removing the protocol and www. prefix
  */
@@ -85,9 +89,9 @@ function requireInitialization<T extends AnyFunction>(
         throw new Error('Failed to get or create a valid page')
       }
 
-      if (!this.cachedBrowserStateSummary) {
-        throw new Error('BrowserSession(...).start() must be called first to initialize the browser session')
-      }
+      // if (!this.cachedBrowserStateSummary) {
+      //   throw new Error('BrowserSession(...).start() must be called first to initialize the browser session')
+      // }
 
       return await originalMethod.apply(this, args)
     } catch (e: any) {
@@ -151,7 +155,7 @@ export class BrowserSession {
   cachedBrowserStateSummary?: BrowserStateSummary
 
   browserStateSummary?: BrowserStateSummary
-  private _cachedClickableElementHashes?: CachedClickableElementHashes
+  private cachedClickableElementHashes?: CachedClickableElementHashes
   private _startLock = new Map() // Simple lock implementation
   private startPromise?: Promise<void>
 
@@ -167,6 +171,10 @@ export class BrowserSession {
 
     // Only create a copy if there are actual overrides to apply
     // This would need to be implemented based on specific requirements
+  }
+
+  getSession() {
+    return this
   }
 
   /**
@@ -946,19 +954,19 @@ export class BrowserSession {
        * and navigation scenarios.
        */
       const performClick = async (clickFunc: () => Promise<void>) => {
-        if (this.browserProfile.saveDownloadsPath) {
+        if (this.browserProfile.downloadsDir) {
           try {
             // Try short-timeout expect_download to detect a file download has been been triggered
-            const downloadInfo = await page.waitForEvent('download', { timeout: 5000 })
             await clickFunc()
+            const downloadInfo = await page.waitForEvent('download', { timeout: 5000 })
 
             // Determine file path
             const suggestedFilename = downloadInfo.suggestedFilename()
             const uniqueFilename = await BrowserSession.getUniqueFilename(
-              this.browserProfile.saveDownloadsPath,
+              this.browserProfile.downloadsDir,
               suggestedFilename,
             )
-            const downloadPath = path.join(this.browserProfile.saveDownloadsPath, uniqueFilename)
+            const downloadPath = path.join(this.browserProfile.downloadsDir, uniqueFilename)
             await downloadInfo.saveAs(downloadPath)
             logger.debug(`⬇️  Download triggered. Saved file to: ${downloadPath}`)
             return downloadPath
@@ -1725,16 +1733,16 @@ export class BrowserSession {
     // Do this only if url has not changed
     if (cacheClickableElementsHashes) {
       // if we are on the same url as the last state, we can use the cached hashes
-      if (this._cachedClickableElementHashes && this._cachedClickableElementHashes.url === updatedState.url) {
+      if (this.cachedClickableElementHashes && this.cachedClickableElementHashes.url === updatedState.url) {
         // Pointers, feel free to edit in place
         const updatedStateClickableElements = ClickableElementProcessor.getClickableElements(updatedState.elementTree)
 
         for (const domElement of updatedStateClickableElements) {
-          domElement.isNew = this._cachedClickableElementHashes.hashes.has(ClickableElementProcessor.hashDomElement(domElement)) // see which elements are new from the last state where we cached the hashes
+          domElement.isNew = this.cachedClickableElementHashes.hashes.has(ClickableElementProcessor.hashDomElement(domElement)) // see which elements are new from the last state where we cached the hashes
         }
       }
       // in any case, we need to cache the new hashes
-      this._cachedClickableElementHashes = {
+      this.cachedClickableElementHashes = {
         url: updatedState.url,
         hashes: ClickableElementProcessor.getClickableElementsHashes(updatedState.elementTree),
       }
