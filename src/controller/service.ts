@@ -10,6 +10,7 @@ import { z } from 'zod'
 import { ActionResult } from '@/agent/views'
 import { BrowserSession } from '@/browser/session'
 import { Logger } from '@/logger'
+import { sleep } from '@/utils'
 import { Registry } from './registry/service'
 
 const logger = Logger.getLogger(import.meta.url)
@@ -47,9 +48,15 @@ export class Controller<Context = any> {
         browser: true,
       },
       execute: async (params, { browser }) => {
-        const page = await browser.getAgentCurrentPage()
-        await page.goto(`https://www.google.com/search?q=${params.query}&udm=14`)
-        await page.waitForLoadState()
+        const searchUrl = `https://www.google.com/search?q=${params.query}&udm=14`
+        let page = await browser.getCurrentPage()
+        if (['about:blank', 'https://www.google.com'].includes(page.url())) {
+          await page.goto(searchUrl)
+          await page.waitForLoadState()
+        } else {
+          page = await browser.createNewTab(searchUrl)
+        }
+
         const msg = `🔍  Searched for "${params.query}" in Google`
         logger.info(msg)
         return {
@@ -69,9 +76,13 @@ export class Controller<Context = any> {
         browser: true,
       },
       execute: async (params, { browser }) => {
-        const page = await browser.getCurrentPage()
-        await page.goto(params.url)
-        await page.waitForLoadState()
+        let page = await browser.getCurrentPage()
+        if (page) {
+          await page.goto(params.url)
+          await page.waitForLoadState()
+        } else {
+          page = await browser.createNewTab(params.url)
+        }
         const msg = `🔗  Navigated to ${params.url}`
         logger.info(msg)
         return {
@@ -108,7 +119,7 @@ export class Controller<Context = any> {
       execute: async ({ seconds }) => {
         const msg = `🕒  Waiting for ${seconds} seconds`
         logger.info(msg)
-        await new Promise(resolve => setTimeout(resolve, seconds * 1000))
+        await sleep(seconds * 1000)
         return {
           extractedContent: msg,
           includeInMemory: true,
@@ -127,7 +138,6 @@ export class Controller<Context = any> {
         browser: true,
       },
       execute: async (params, { browser }) => {
-        const session = await browser.getSession()
         const selectorMap = await browser.getSelectorMap()
 
         if (!selectorMap[params.index]) {
@@ -135,10 +145,10 @@ export class Controller<Context = any> {
         }
 
         const elementNode = await browser.getDomElementByIndex(params.index)
-        const initialPages = session.context.pages().length
+        const initialPages = browser.tabs.length
 
         // Check if element is a file uploader
-        if (await browser.isFileUploader(elementNode)) {
+        if (await browser.findFileUploadElementByIndex(elementNode)) {
           const msg = `Index ${params.index} - has an element which opens file upload dialog. To upload files please use a specific function to upload files`
           logger.info(msg)
           return {
@@ -159,7 +169,7 @@ export class Controller<Context = any> {
           logger.info(msg)
           logger.debug(`Element xpath: ${elementNode.xpath}`)
 
-          if (session.context.pages().length > initialPages) {
+          if (browser.tabs.length > initialPages) {
             const newTabMsg = 'New tab opened - switching to it'
             msg += ` - ${newTabMsg}`
             logger.info(newTabMsg)
@@ -200,7 +210,7 @@ export class Controller<Context = any> {
         }
 
         const elementNode = await browser.getDomElementByIndex(params.index)
-        await browser._inputTextElementNode(elementNode, params.text)
+        await browser.inputTextElementNode(elementNode, params.text)
 
         let msg
         if (!hasSensitiveData) {
@@ -256,7 +266,7 @@ export class Controller<Context = any> {
       execute: async (params, { browser }) => {
         await browser.switchToTab(params.pageId)
         // Wait for tab to be ready and ensure references are synchronized
-        const page = await browser.getAgentCurrentPage()
+        const page = await browser.getCurrentPage()
         await page.waitForLoadState()
 
         const msg = `🔄  Switched to tab ${params.pageId}`
@@ -281,7 +291,6 @@ export class Controller<Context = any> {
       execute: async (params, { browser }) => {
         await browser.createNewTab(params.url)
         // Ensure tab references are properly synchronized
-        await browser.getAgentCurrentPage()
 
         const msg = `🔗  Opened new tab with ${params.url}`
         logger.info(msg)
@@ -379,12 +388,19 @@ export class Controller<Context = any> {
         browser: true,
       },
       execute: async (params, { browser }) => {
+        /**
+         * Use browser._scroll_container for container-aware scrolling.
+         * (b) If that JavaScript throws, fall back to window.scrollBy().
+         */
         const page = await browser.getCurrentPage()
 
-        if (params.amount !== undefined) {
-          await page.evaluate(`window.scrollBy(0, ${params.amount});`)
-        } else {
-          await page.evaluate('window.scrollBy(0, window.innerHeight);')
+        const dy = params.amount ?? await page.evaluate(() => window.innerHeight)
+
+        try {
+          await browser.scrollContainer(dy)
+        } catch (error) {
+          await page.evaluate(y => window.scrollBy(0, y), dy)
+          logger.debug('Smart scroll failed; used window.scrollBy fallback')
         }
 
         const amount = params.amount !== undefined ? `${params.amount} pixels` : 'one page'
@@ -410,10 +426,13 @@ export class Controller<Context = any> {
       execute: async (params, { browser }) => {
         const page = await browser.getCurrentPage()
 
-        if (params.amount !== undefined) {
-          await page.evaluate(`window.scrollBy(0, -${params.amount});`)
-        } else {
-          await page.evaluate('window.scrollBy(0, -window.innerHeight);')
+        const dy = -(params.amount ?? await page.evaluate(() => window.innerHeight))
+
+        try {
+          await browser.scrollContainer(dy)
+        } catch (error) {
+          await page.evaluate(y => window.scrollBy(0, y), dy)
+          logger.debug('Smart scroll failed; used window.scrollBy fallback')
         }
 
         const amount = params.amount !== undefined ? `${params.amount} pixels` : 'one page'

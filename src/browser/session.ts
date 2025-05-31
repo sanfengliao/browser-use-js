@@ -25,24 +25,24 @@ const logger = Logger.getLogger(import.meta.filename)
 // Check if running in Docker
 const IN_DOCKER = 'ty1'.includes((process.env.IN_DOCKER || 'false').toLowerCase()[0])
 
-let _GLOB_WARNING_SHOWN = false // used inside _isUrlAllowed to avoid spamming the logs with the same warning multiple times
+let GLOB_WARNING_SHOWN = false // used inside _isUrlAllowed to avoid spamming the logs with the same warning multiple times
 
-function _logGlobWarning(domain: string, glob: string): void {
-  if (!_GLOB_WARNING_SHOWN) {
+function logGlobWarning(domain: string, glob: string): void {
+  if (!GLOB_WARNING_SHOWN) {
     logger.warn(
       // glob patterns are very easy to mess up and match too many domains by accident
       // e.g. if you only need to access gmail, don't use *.google.com because an attacker could convince the agent to visit a malicious doc
       // on docs.google.com/s/some/evil/doc to set up a prompt injection attack
       `⚠️ Allowing agent to visit ${domain} based on allowed_domains=['${glob}', ...]. Set allowed_domains=['${domain}', ...] explicitly to avoid matching too many domains!`,
     )
-    _GLOB_WARNING_SHOWN = true
+    GLOB_WARNING_SHOWN = true
   }
 }
 
 /**
  * Truncate/pretty-print a URL with a maximum length, removing the protocol and www. prefix
  */
-function _logPrettyUrl(s: string, maxLen: number = 22): string {
+function logPrettyUrl(s: string, maxLen: number = 22): string {
   s = s.replace('https://', '').replace('http://', '').replace('www.', '')
   if (s.length > maxLen) {
     return `${s.slice(0, maxLen)}…`
@@ -53,7 +53,7 @@ function _logPrettyUrl(s: string, maxLen: number = 22): string {
 /**
  * Pretty-print a path, shorten home dir to ~ and cwd to .
  */
-function _logPrettyPath(pathStr: string): string {
+function logPrettyPath(pathStr: string): string {
   return (pathStr || '').replace(os.homedir(), '~').replace(process.cwd(), '.')
 }
 
@@ -85,7 +85,7 @@ function requireInitialization<T extends AnyFunction>(
         throw new Error('Failed to get or create a valid page')
       }
 
-      if (!this._cachedBrowserStateSummary) {
+      if (!this.cachedBrowserStateSummary) {
         throw new Error('BrowserSession(...).start() must be called first to initialize the browser session')
       }
 
@@ -94,7 +94,7 @@ function requireInitialization<T extends AnyFunction>(
       // Check if this is a TargetClosedError or similar connection error
       if (e.message.includes('TargetClosedError') || e.message.includes('context or browser has been closed')) {
         logger.debug(`Detected closed browser connection in ${context.name.toString()}, resetting connection state`)
-        this._resetConnectionState()
+        this.resetConnectionState()
         // Re-raise the error so the caller can handle it appropriately
         throw e
       } else {
@@ -148,7 +148,7 @@ export class BrowserSession {
   /** Foreground Page that the human is focused on */
   humanCurrentPage?: Page // mutated by this._setupCurrentPageChangeListeners()
 
-  _cachedBrowserStateSummary?: BrowserStateSummary
+  cachedBrowserStateSummary?: BrowserStateSummary
 
   browserStateSummary?: BrowserStateSummary
   private _cachedClickableElementHashes?: CachedClickableElementHashes
@@ -195,7 +195,7 @@ export class BrowserSession {
           resolve()
           return
         }
-        this._resetConnectionState()
+        this.resetConnectionState()
 
         this.initialized = true // set this first to ensure two parallel calls to start() don't clash with each other
 
@@ -216,8 +216,8 @@ export class BrowserSession {
         }
 
         // resize the existing pages and set up foreground tab detection
-        await this._setupViewports()
-        await this._setupCurrentPageChangeListeners()
+        await this.setupViewports()
+        await this.setupCurrentPageChangeListeners()
 
         resolve()
       } catch (error) {
@@ -245,7 +245,7 @@ export class BrowserSession {
         await (this.browserContext || this.browser)?.close()
         logger.info(
           `🛑 Stopped the ${this.browserProfile.channel.toLowerCase()} browser `
-          + `keep_alive=false user_data_dir=${_logPrettyPath(this.browserProfile.userDataDir || '') || '<incognito>'} cdp_url=${this.cdpUrl || this.wssUrl} pid=${this.browserPid}`,
+          + `keep_alive=false user_data_dir=${logPrettyPath(this.browserProfile.userDataDir || '') || '<incognito>'} cdp_url=${this.cdpUrl || this.wssUrl} pid=${this.browserPid}`,
         )
         this.browserContext = undefined
       } catch (e: any) {
@@ -315,7 +315,7 @@ export class BrowserSession {
 
     if (this.browser || this.browserContext) {
       logger.info(`🌎 Connected to existing user-provided browser_context: ${this.browserContext}`)
-      this._setBrowserKeepAlive(true) // we connected to an existing browser, dont kill it at the end
+      this.setBrowserKeepAlive(true) // we connected to an existing browser, dont kill it at the end
     }
   }
 
@@ -344,7 +344,7 @@ export class BrowserSession {
 
     logger.info(`🌎 Connecting to existing remote chromium playwright node.js server over WSS: ${this.wssUrl}`)
     this.browser = this.browser || await chromium.connect(this.wssUrl, this.browserProfile.kwargsForConnect())
-    this._setBrowserKeepAlive(true) // we connected to an existing browser, dont kill it at the end
+    this.setBrowserKeepAlive(true) // we connected to an existing browser, dont kill it at the end
   }
 
   /** check for a passed cdp_url, connect to a remote chromium-based browser via CDP */
@@ -358,7 +358,7 @@ export class BrowserSession {
 
     logger.info(`🌎 Connecting to existing remote chromium-based browser over CDP: ${this.cdpUrl}`)
     this.browser = this.browser || await chromium.connectOverCDP(this.cdpUrl, this.browserProfile.kwargsForConnect())
-    this._setBrowserKeepAlive(true) // we connected to an existing browser, dont kill it at the end
+    this.setBrowserKeepAlive(true) // we connected to an existing browser, dont kill it at the end
   }
 
   /** Launch a new browser and browser_context */
@@ -383,7 +383,7 @@ export class BrowserSession {
       logger.info(
         `🌎 Launching local browser `
         + `driver=${this.playwright?.constructor.name || 'playwright'} channel=${this.browserProfile.channel.toLowerCase()} `
-        + `user_data_dir=${_logPrettyPath(this.browserProfile.userDataDir || '') || '<incognito>'}`,
+        + `user_data_dir=${logPrettyPath(this.browserProfile.userDataDir || '') || '<incognito>'}`,
       )
 
       if (!this.browserProfile.userDataDir) {
@@ -522,7 +522,7 @@ export class BrowserSession {
   //         - https://github.com/microsoft/playwright/issues/13989
 
   // set up / detect foreground page
-  async _setupCurrentPageChangeListeners(): Promise<void> {
+  async setupCurrentPageChangeListeners(): Promise<void> {
     if (!this.browserContext) {
       throw new Error('BrowserContext object is not set')
     }
@@ -543,7 +543,7 @@ export class BrowserSession {
     this.agentCurrentPage = this.agentCurrentPage || foregroundPage
     this.humanCurrentPage = this.humanCurrentPage || foregroundPage
 
-    const _BrowserUseonTabVisibilityChange = (source: { page: Page }) => {
+    const BrowserUseonTabVisibilityChange = (source: { page: Page }) => {
       /** hook callback fired when init script injected into a page detects a focus event */
       const newPage = source.page
 
@@ -565,15 +565,15 @@ export class BrowserSession {
 
       if (oldUrl !== newUrl) {
         logger.info(
-          `👁️ Foregound tab changed by human from [${oldTabIdx}]${_logPrettyUrl(oldUrl)} `
-          + `➡️ [${newTabIdx}]${_logPrettyUrl(newUrl)} `
-          + `(agent will stay on [${agentTabIdx}]${_logPrettyUrl(agentUrl)})`,
+          `👁️ Foregound tab changed by human from [${oldTabIdx}]${logPrettyUrl(oldUrl)} `
+          + `➡️ [${newTabIdx}]${logPrettyUrl(newUrl)} `
+          + `(agent will stay on [${agentTabIdx}]${logPrettyUrl(agentUrl)})`,
         )
       }
     }
 
     try {
-      await this.browserContext.exposeBinding('_BrowserUseonTabVisibilityChange', _BrowserUseonTabVisibilityChange)
+      await this.browserContext.exposeBinding('_BrowserUseonTabVisibilityChange', BrowserUseonTabVisibilityChange)
     } catch (e: any) {
       if (e.message.includes('Function "_BrowserUseonTabVisibilityChange" has been already registered')) {
         logger.debug(
@@ -620,7 +620,7 @@ export class BrowserSession {
    * Resize any existing page viewports to match the configured size
    * @returns
    */
-  async _setupViewports(): Promise<void> {
+  async setupViewports(): Promise<void> {
     // log the viewport settings to terminal
     const viewport = this.browserProfile.viewport
     logger.debug(
@@ -745,7 +745,7 @@ export class BrowserSession {
   /**
    * set the keep_alive flag on the browser_profile, defaulting to True if keep_alive is None
    */
-  private _setBrowserKeepAlive(keepAlive?: boolean): void {
+  private setBrowserKeepAlive(keepAlive?: boolean): void {
     if (this.browserProfile.keepAlive === undefined) {
       this.browserProfile.keepAlive = keepAlive
     }
@@ -790,7 +790,7 @@ export class BrowserSession {
   }
 
   /** Reset the browser connection state when disconnection is detected */
-  _resetConnectionState(): void {
+  resetConnectionState(): void {
     this.initialized = false
     this.browser = undefined
     this.browserContext = undefined
@@ -928,7 +928,7 @@ export class BrowserSession {
    */
   @requireInitialization
   @timeExecutionAsync('--click_element_node')
-  async _clickElementNode(elementNode: DOMElementNode) {
+  async clickElementNode(elementNode: DOMElementNode) {
     const page = await this.getCurrentPage()
     try {
       // Highlight before clicking
@@ -954,7 +954,7 @@ export class BrowserSession {
 
             // Determine file path
             const suggestedFilename = downloadInfo.suggestedFilename()
-            const uniqueFilename = await BrowserSession._getUniqueFilename(
+            const uniqueFilename = await BrowserSession.getUniqueFilename(
               this.browserProfile.saveDownloadsPath,
               suggestedFilename,
             )
@@ -967,7 +967,7 @@ export class BrowserSession {
               // If no download is triggered, treat as normal click
               logger.debug('No download triggered within timeout. Checking navigation...')
               await page.waitForLoadState()
-              await this._checkAndHandleNavigation(page)
+              await this.checkAndHandleNavigation(page)
             } else {
               throw e
             }
@@ -976,7 +976,7 @@ export class BrowserSession {
           // Standard click logic if no download is expected
           await clickFunc()
           await page.waitForLoadState()
-          await this._checkAndHandleNavigation(page)
+          await this.checkAndHandleNavigation(page)
         }
       }
 
@@ -1115,10 +1115,10 @@ export class BrowserSession {
         cookiesFilePath = path.resolve(filePath || this.browserProfile.cookiesFile!)
         fs.mkdirSync(path.dirname(cookiesFilePath), { recursive: true })
         fs.writeFileSync(cookiesFilePath, JSON.stringify(cookies, null, 4))
-        logger.info(`🍪 Saved ${cookies.length} cookies to cookies_file=${_logPrettyPath(cookiesFilePath)}`)
+        logger.info(`🍪 Saved ${cookies.length} cookies to cookies_file=${logPrettyPath(cookiesFilePath)}`)
       } catch (e: any) {
         logger.warn(
-          `❌ Failed to save cookies to cookies_file=${_logPrettyPath(cookiesFilePath!)}: ${e.message}`,
+          `❌ Failed to save cookies to cookies_file=${logPrettyPath(cookiesFilePath!)}: ${e.message}`,
         )
       }
     }
@@ -1150,7 +1150,7 @@ export class BrowserSession {
           fs.writeFileSync(storageStatePath, JSON.stringify(mergedStorageState, null, 4))
         } catch (e: any) {
           logger.warn(
-            `❌ Failed to merge storage state with existing storage_state=${_logPrettyPath(storageStatePath)}: ${e.message}`,
+            `❌ Failed to merge storage state with existing storage_state=${logPrettyPath(storageStatePath)}: ${e.message}`,
           )
           return
         }
@@ -1158,11 +1158,11 @@ export class BrowserSession {
 
       fs.writeFileSync(storageStatePath, JSON.stringify(storageState, null, 4))
       logger.info(
-        `🍪 Saved ${storageState.cookies.length} cookies to storage_state=${_logPrettyPath(storageStatePath)}`,
+        `🍪 Saved ${storageState.cookies.length} cookies to storage_state=${logPrettyPath(storageStatePath)}`,
       )
     } catch (e: any) {
       logger.warn(
-        `❌ Failed to save storage state to storage_state=${_logPrettyPath(storageStatePath)}: ${e.message}`,
+        `❌ Failed to save storage state to storage_state=${logPrettyPath(storageStatePath)}: ${e.message}`,
       )
     }
   }
@@ -1189,11 +1189,11 @@ export class BrowserSession {
         const cookiesData = JSON.parse(fs.readFileSync(cookiesPath, 'utf-8'))
         if (cookiesData) {
           await this.browserContext!.addCookies(cookiesData)
-          logger.info(`🍪 Loaded ${cookiesData.length} cookies from cookies_file=${_logPrettyPath(cookiesPath)}`)
+          logger.info(`🍪 Loaded ${cookiesData.length} cookies from cookies_file=${logPrettyPath(cookiesPath)}`)
         }
       } catch (e: any) {
         logger.warn(
-          `❌ Failed to load cookies from cookies_file=${_logPrettyPath(cookiesPath)}: : ${e.message}`,
+          `❌ Failed to load cookies from cookies_file=${logPrettyPath(cookiesPath)}: : ${e.message}`,
         )
       }
     }
@@ -1205,7 +1205,7 @@ export class BrowserSession {
           storageState = JSON.parse(fs.readFileSync(storageState.toString(), 'utf-8'))
         } catch (e: any) {
           logger.warn(
-            `❌ Failed to load cookies from storage_state=${_logPrettyPath(storageState as string)}: ${e.message}`,
+            `❌ Failed to load cookies from storage_state=${logPrettyPath(storageState as string)}: ${e.message}`,
           )
           return
         }
@@ -1222,11 +1222,11 @@ export class BrowserSession {
         // https://playwright.dev/python/docs/auth#session-storage
         // await this.browserContext.add_local_storage(storage_state['localStorage'])
         logger.info(
-          `🍪 Loaded ${storageState.cookies.length} cookies from storage_state=${_logPrettyPath(this.browserProfile.storageState as string)}`,
+          `🍪 Loaded ${storageState.cookies.length} cookies from storage_state=${logPrettyPath(this.browserProfile.storageState as string)}`,
         )
       } catch (e: any) {
         logger.warn(
-          `❌ Failed to load cookies from storage_state=${_logPrettyPath(this.browserProfile.storageState as string)}: ${e.message}`,
+          `❌ Failed to load cookies from storage_state=${logPrettyPath(this.browserProfile.storageState as string)}: ${e.message}`,
         )
       }
     }
@@ -1239,7 +1239,7 @@ export class BrowserSession {
     await this.loadStorageState()
   }
 
-  async _waitForStableNetwork(): Promise<void> {
+  async waitForStableNetwork(): Promise<void> {
     const pendingRequests = new Set<Request>()
     let lastActivity = Date.now()
 
@@ -1419,14 +1419,14 @@ export class BrowserSession {
    * Also checks if the loaded URL is allowed.
    * @param timeoutOverride
    */
-  async _waitForPageAndFramesLoad(timeoutOverride?: number): Promise<void> {
+  async waitForPageAndFramesLoad(timeoutOverride?: number): Promise<void> {
     const startTime = Date.now()
 
     const page = await this.getCurrentPage()
 
     try {
-      await this._waitForStableNetwork()
-      await this._checkAndHandleNavigation(page)
+      await this.waitForStableNetwork()
+      await this.checkAndHandleNavigation(page)
     } catch (error) {
       if (error instanceof URLNotAllowedError) {
         throw error // Re-throw URLNotAllowedError to be handled by the caller
@@ -1455,11 +1455,11 @@ export class BrowserSession {
     const tabIdx = this.tabs.indexOf(page)
     if (byteUsed) {
       logger.debug(
-        `➡️ Page navigation [${tabIdx}]: ${_logPrettyUrl(page.url(), 40)} used ${(byteUsed / 1024).toFixed(1)} KB in ${elapsed.toFixed(2)}s, waiting +${remaining.toFixed(2)}s for all frames to finish`,
+        `➡️ Page navigation [${tabIdx}]: ${logPrettyUrl(page.url(), 40)} used ${(byteUsed / 1024).toFixed(1)} KB in ${elapsed.toFixed(2)}s, waiting +${remaining.toFixed(2)}s for all frames to finish`,
       )
     } else {
       logger.debug(
-        `➡️ Page navigation [${tabIdx}]: ${_logPrettyUrl(page.url(), 40)} took ${elapsed.toFixed(2)}s, waiting +${remaining.toFixed(2)}s for all frames to finish`,
+        `➡️ Page navigation [${tabIdx}]: ${logPrettyUrl(page.url(), 40)} took ${elapsed.toFixed(2)}s, waiting +${remaining.toFixed(2)}s for all frames to finish`,
       )
     }
 
@@ -1491,7 +1491,7 @@ export class BrowserSession {
           if (allowDomain.includes('*')) {
             const parsedUrl = new URL(url)
             const domain = parsedUrl.hostname.toLowerCase()
-            _logGlobWarning(domain, allowDomain)
+            logGlobWarning(domain, allowDomain)
           }
           return true // URL matches an allowed domain pattern
         }
@@ -1506,7 +1506,7 @@ export class BrowserSession {
    * Check if current page URL is allowed and handle if not.
    * @param page
    */
-  async _checkAndHandleNavigation(page: Page) {
+  async checkAndHandleNavigation(page: Page) {
     if (!this.isUrlAllowed(page.url())) {
       logger.warn(`⛔️  Navigation to non-allowed URL detected:${page.url()}`)
       try {
@@ -1718,8 +1718,8 @@ export class BrowserSession {
    */
   @timeExecutionSync('--get_state_summary')
   async getStateSummary(cacheClickableElementsHashes: boolean): Promise<BrowserStateSummary> {
-    await this._waitForPageAndFramesLoad()
-    const updatedState = await this._getUpdatedState()
+    await this.waitForPageAndFramesLoad()
+    const updatedState = await this.getUpdatedState()
 
     // Find out which elements are new
     // Do this only if url has not changed
@@ -1740,14 +1740,14 @@ export class BrowserSession {
       }
     }
 
-    this._cachedBrowserStateSummary = updatedState
+    this.cachedBrowserStateSummary = updatedState
 
     // Save cookies if a file is specified
     if (this.browserProfile.cookiesFile) {
       await this.saveCookies()
     }
 
-    return this._cachedBrowserStateSummary
+    return this.cachedBrowserStateSummary
   }
 
   /**
@@ -1755,7 +1755,7 @@ export class BrowserSession {
    * @param focusElement
    * @returns
    */
-  private async _getUpdatedState(focusElement: number = -1): Promise<BrowserStateSummary> {
+  private async getUpdatedState(focusElement: number = -1): Promise<BrowserStateSummary> {
     const page = await this.getCurrentPage()
 
     // Check if current page is still valid, if not switch to another available page
@@ -1900,8 +1900,10 @@ export class BrowserSession {
 
   // region - User Actions
 
-  /** Generate a unique filename for downloads by appending (1), (2), etc., if a file already exists. */
-  static async _getUniqueFilename(directory: string, filename: string): Promise<string> {
+  /**
+   * Generate a unique filename for downloads by appending (1), (2), etc., if a file already exists.
+   */
+  static async getUniqueFilename(directory: string, filename: string): Promise<string> {
     const base = path.basename(filename, path.extname(filename))
     const ext = path.extname(filename)
     let counter = 1
@@ -1913,7 +1915,7 @@ export class BrowserSession {
     return newFilename
   }
 
-  static _convertSimpleXPathToCssSelector(xpath: string): string {
+  static convertSimpleXPathToCssSelector(xpath: string): string {
     /** Converts simple XPath expressions to CSS selectors. */
     if (!xpath) {
       return ''
@@ -1987,10 +1989,10 @@ export class BrowserSession {
    * @param includeDynamicAttributes - Whether to include dynamic attributes (data-id, data-qa, etc.) in the selector
    * @returns A valid CSS selector string
    */
-  static _enhancedCssSelectorForElement(element: DOMElementNode, includeDynamicAttributes: boolean = true): string {
+  static enhancedCssSelectorForElement(element: DOMElementNode, includeDynamicAttributes: boolean = true): string {
     try {
       // Get base selector from XPath
-      let cssSelector = this._convertSimpleXPathToCssSelector(element.xpath)
+      let cssSelector = this.convertSimpleXPathToCssSelector(element.xpath)
 
       // Handle class attributes
       if ('class' in element.attributes && element.attributes.class && includeDynamicAttributes) {
@@ -2096,18 +2098,17 @@ export class BrowserSession {
     }
   }
 
-  /** Checks if an element is visible on the page. */
+  /**
+   * Checks if an element is visible on the page.
+   * We use our own implementation instead of relying solely on Playwright's is_visible() because
+   * of edge cases with CSS frameworks like Tailwind. When elements use Tailwind's 'hidden' class,
+   * the computed style may return display as '' (empty string) instead of 'none', causing Playwright
+   * to incorrectly consider hidden elements as visible. By additionally checking the bounding box
+   * dimensions, we catch elements that have zero width/height regardless of how they were hidden.
+   */
   @requireInitialization
   @timeExecutionAsync('--is_visible')
-  async _isVisible(element: ElementHandle): Promise<boolean> {
-    /**
-     * Checks if an element is visible on the page.
-     * We use our own implementation instead of relying solely on Playwright's is_visible() because
-     * of edge cases with CSS frameworks like Tailwind. When elements use Tailwind's 'hidden' class,
-     * the computed style may return display as '' (empty string) instead of 'none', causing Playwright
-     * to incorrectly consider hidden elements as visible. By additionally checking the bounding box
-     * dimensions, we catch elements that have zero width/height regardless of how they were hidden.
-     */
+  async isVisible(element: ElementHandle): Promise<boolean> {
     const isHidden = await element.isHidden()
     const bbox = await element.boundingBox()
 
@@ -2135,14 +2136,14 @@ export class BrowserSession {
     // Process all iframe parents in sequence
     const iframes = parents.filter(item => item.tagName === 'iframe')
     for (const parent of iframes) {
-      const cssSelector = BrowserSession._enhancedCssSelectorForElement(
+      const cssSelector = BrowserSession.enhancedCssSelectorForElement(
         parent,
         this.browserProfile.includeDynamicAttributes,
       )
       currentFrame = currentFrame.frameLocator(cssSelector)
     }
 
-    const cssSelector = BrowserSession._enhancedCssSelectorForElement(
+    const cssSelector = BrowserSession.enhancedCssSelectorForElement(
       element,
       this.browserProfile.includeDynamicAttributes,
     )
@@ -2155,7 +2156,7 @@ export class BrowserSession {
         // Try to scroll into view if hidden
         const elementHandle = await currentFrame.$(cssSelector)
         if (elementHandle) {
-          const isVisible = await this._isVisible(elementHandle)
+          const isVisible = await this.isVisible(elementHandle)
           if (isVisible) {
             await elementHandle.scrollIntoViewIfNeeded()
           }
@@ -2181,7 +2182,7 @@ export class BrowserSession {
       // Use XPath to locate the element
       const elementHandle = await page.$(`xpath=${xpath}`)
       if (elementHandle) {
-        const isVisible = await this._isVisible(elementHandle)
+        const isVisible = await this.isVisible(elementHandle)
         if (isVisible) {
           await elementHandle.scrollIntoViewIfNeeded()
         }
@@ -2206,7 +2207,7 @@ export class BrowserSession {
       // Use CSS selector to locate the element
       const elementHandle = await page.$(cssSelector)
       if (elementHandle) {
-        const isVisible = await this._isVisible(elementHandle)
+        const isVisible = await this.isVisible(elementHandle)
         if (isVisible) {
           await elementHandle.scrollIntoViewIfNeeded()
         }
@@ -2239,7 +2240,7 @@ export class BrowserSession {
       // considering only visible elements
       const visibleElements = []
       for (const el of elements) {
-        if (await this._isVisible(el)) {
+        if (await this.isVisible(el)) {
           visibleElements.push(el)
         }
       }
@@ -2261,7 +2262,7 @@ export class BrowserSession {
         elementHandle = visibleElements[0]
       }
 
-      const isVisible = await this._isVisible(elementHandle)
+      const isVisible = await this.isVisible(elementHandle)
       if (isVisible) {
         await elementHandle.scrollIntoViewIfNeeded()
       }
@@ -2293,7 +2294,7 @@ export class BrowserSession {
       // Ensure element is ready for input
       try {
         await elementHandle.waitForElementState('stable', { timeout: 1000 })
-        const isVisible = await this._isVisible(elementHandle)
+        const isVisible = await this.isVisible(elementHandle)
         if (isVisible) {
           await elementHandle.scrollIntoViewIfNeeded({ timeout: 1000 })
         }
@@ -2403,7 +2404,7 @@ export class BrowserSession {
 
     if (url) {
       await newPage.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 })
-      await this._waitForPageAndFramesLoad(1)
+      await this.waitForPageAndFramesLoad(1)
     }
 
     if (!this.humanCurrentPage) {
@@ -2434,10 +2435,10 @@ export class BrowserSession {
 
   @requireInitialization
   async getSelectorMap(): Promise<SelectorMap> {
-    if (!this._cachedBrowserStateSummary) {
+    if (!this.cachedBrowserStateSummary) {
       return {}
     }
-    return this._cachedBrowserStateSummary.selectorMap
+    return this.cachedBrowserStateSummary.selectorMap
   }
 
   @requireInitialization
@@ -2580,7 +2581,10 @@ export class BrowserSession {
     return { pixelsAbove, pixelsBelow }
   }
 
-  /** Scroll the element that truly owns vertical scroll.Starts at the focused node ➜ climbs to the first big, scroll-enabled ancestor otherwise picks the first scrollable element or the root, then calls `element.scrollBy` (or `window.scrollBy` for the root) by the supplied pixel value. */
+  /**
+   * Scroll the element that truly owns vertical scroll.Starts at the focused node ➜ climbs to the first big,
+   * scroll-enabled ancestor otherwise picks the first scrollable element or the root, then calls `element.scrollBy` (or `window.scrollBy` for the root) by the supplied pixel value.
+   */
   @requireInitialization
   async scrollContainer(pixels: number): Promise<void> {
     // An element can *really* scroll if: overflow-y is auto|scroll|overlay, it has more content than fits, its own viewport is not a postage stamp (more than 50 % of window).
