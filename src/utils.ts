@@ -482,7 +482,7 @@ export function matchUrlWithDomainPattern(url: string, domainPattern: string, lo
       // First, check for patterns like *.*.domain which are unsafe
       if ((patternDomain.match(/\*\./g) || []).length > 1 || (patternDomain.match(/\.\*/g) || []).length > 1) {
         if (logWarnings) {
-          console.error(`⛔️ Multiple wildcards in pattern=[${domainPattern}] are not supported`)
+          logger.error(`⛔️ Multiple wildcards in pattern=[${domainPattern}] are not supported`)
         }
         return false // Don't match unsafe patterns
       }
@@ -490,7 +490,7 @@ export function matchUrlWithDomainPattern(url: string, domainPattern: string, lo
       // Check for wildcards in TLD part (example.*)
       if (patternDomain.endsWith('.*')) {
         if (logWarnings) {
-          console.error(`⛔️ Wildcard TLDs like in pattern=[${domainPattern}] are not supported for security`)
+          logger.error(`⛔️ Wildcard TLDs like in pattern=[${domainPattern}] are not supported for security`)
         }
         return false // Don't match unsafe patterns
       }
@@ -499,7 +499,7 @@ export function matchUrlWithDomainPattern(url: string, domainPattern: string, lo
       const bareDomain = patternDomain.replace(/\*\./g, '')
       if (bareDomain.includes('*')) {
         if (logWarnings) {
-          console.error(`⛔️ Only *.domain style patterns are supported, ignoring pattern=[${domainPattern}]`)
+          logger.error(`⛔️ Only *.domain style patterns are supported, ignoring pattern=[${domainPattern}]`)
         }
         return false // Don't match unsafe patterns
       }
@@ -521,7 +521,7 @@ export function matchUrlWithDomainPattern(url: string, domainPattern: string, lo
     return false
   } catch (e) {
     if (logWarnings) {
-      console.error(`⛔️ Error matching URL ${url} with pattern ${domainPattern}: ${e instanceof Error ? e.constructor.name : 'Error'}: ${e instanceof Error ? e.message : e}`)
+      logger.error(`⛔️ Error matching URL ${url} with pattern ${domainPattern}: ${e instanceof Error ? e.constructor.name : 'Error'}: ${e instanceof Error ? e.message : e}`)
     }
     return false
   }

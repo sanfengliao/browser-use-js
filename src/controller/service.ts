@@ -1,14 +1,15 @@
-import type { BrowserContext } from '@/browser/context'
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { Page } from 'playwright'
 import type { ZodType } from 'zod'
 import type { ActionDependencies, ActionPayload, RegisteredActionParams } from './registry/view'
 import type { Position } from './view'
-import { ActionResult } from '@/agent/views'
-import { Logger } from '@/logger'
+
 import { PromptTemplate } from '@langchain/core/prompts'
 import TurndownService from 'turndown'
 import { z } from 'zod'
+import { ActionResult } from '@/agent/views'
+import { BrowserSession } from '@/browser/session'
+import { Logger } from '@/logger'
 import { Registry } from './registry/service'
 
 const logger = Logger.getLogger(import.meta.url)
@@ -1022,7 +1023,7 @@ export class Controller<Context = any> {
       },
     })
 
-    const selectCellOrRange = async (browser: BrowserContext, cellOrRange: string) => {
+    const selectCellOrRange = async (browser: BrowserSession, cellOrRange: string) => {
       const page = await browser.getCurrentPage()
 
       await page.keyboard.press('Enter') // make sure we dont delete current cell contents if we were last editing
@@ -1183,7 +1184,7 @@ export class Controller<Context = any> {
       context,
     }: {
       action: ActionPayload
-      browserContext: BrowserContext
+      browserContext: BrowserSession
       pageExtractionLlm?: BaseChatModel
       sensitiveData?: Record<string, string>
       availableFilePaths?: string[]

@@ -1,5 +1,5 @@
 import * as crypto from 'node:crypto'
-import { BrowserContext } from '@/browser/context'
+import { BrowserSession } from '@/browser/session'
 import { DOMElementNode } from '../views'
 import { DOMHistoryElement, HashedDomElement } from './view'
 
@@ -13,7 +13,7 @@ export class HistoryTreeProcessor {
   static convertDomElementToHistoryElement(domElement: DOMElementNode): DOMHistoryElement {
     const parentBranchPath = HistoryTreeProcessor.getParentBranchPath(domElement)
 
-    const cssSelector = BrowserContext.enhancedCssSelectorForElement(domElement)
+    const cssSelector = BrowserSession._enhancedCssSelectorForElement(domElement)
 
     return new DOMHistoryElement({
       tagName: domElement.tagName,

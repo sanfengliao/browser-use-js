@@ -1,13 +1,13 @@
-import type { ActionResultData } from '@/agent/views'
-import type { BrowserContext } from '@/browser/context'
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { Page } from 'playwright'
 import type { ZodType } from 'zod'
 import type { ActionDependencies, RegisteredActionParams } from './view'
-import { ProductTelemetry } from '@/telemetry/service'
-import { ControllerRegisteredFunctionsTelemetryEvent } from '@/telemetry/view'
+import type { ActionResultData } from '@/agent/views'
+import type { BrowserSession } from '@/browser/session'
 import { z } from 'zod'
 import zodToJsonSchema from 'zod-to-json-schema'
+import { ProductTelemetry } from '@/telemetry/service'
+import { ControllerRegisteredFunctionsTelemetryEvent } from '@/telemetry/view'
 import { timeExecutionAsync } from '../../utils'
 import { ActionModel, ActionRegistry, RegisteredAction } from './view'
 
@@ -16,7 +16,7 @@ type Context = any
 interface ExecuteActionParams<C> {
   actionName: string
   params: any
-  browser?: BrowserContext
+  browser?: BrowserSession
   pageExtractionLlm?: BaseChatModel
   sensitiveData?: Record<string, string>
   availableFilePaths?: string[]

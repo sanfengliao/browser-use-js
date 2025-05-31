@@ -1,4 +1,4 @@
-(
+export const highlightElement = (
   args = {
     doHighlightElements: true,
     focusHighlightIndex: -1,
