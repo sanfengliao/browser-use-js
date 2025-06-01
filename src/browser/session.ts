@@ -957,8 +957,9 @@ export class BrowserSession {
         if (this.browserProfile.downloadsDir) {
           try {
             // Try short-timeout expect_download to detect a file download has been been triggered
+            const downloadInfoPromise = page.waitForEvent('download', { timeout: 5000 })
             await clickFunc()
-            const downloadInfo = await page.waitForEvent('download', { timeout: 5000 })
+            const downloadInfo = await downloadInfoPromise
 
             // Determine file path
             const suggestedFilename = downloadInfo.suggestedFilename()
