@@ -1080,7 +1080,7 @@ export class BrowserSession {
     R,
     Args,
   >(pageFunction: (args: Args) => R,
-    args: Args,
+    args?: Args,
   ): Promise<R> {
     const page = await this.getCurrentPage()
     return page.evaluate(pageFunction as any, args)
