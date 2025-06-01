@@ -235,7 +235,6 @@ export class BrowserSession {
     })
 
     await this.startPromise
-    this.startPromise = undefined
 
     return this
   }
