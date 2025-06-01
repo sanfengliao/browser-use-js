@@ -109,7 +109,7 @@ function requireInitialization<T extends AnyFunction>(
   } as T
 }
 
-const DEFAULT_BROWSER_PROFILE = new BrowserProfile()
+export const DEFAULT_BROWSER_PROFILE = new BrowserProfile()
 
 /**
  * Clickable elements hashes for the last state
