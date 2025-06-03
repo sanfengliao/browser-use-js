@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { Browser, BrowserConfig } from '@/browser/browser'
+import { Browser, BrowserConfig } from '../../src/browser/browser'
 
 it('test_take_full_page_screenshot', { timeout: 0 }, async () => {
   const browser = new Browser({

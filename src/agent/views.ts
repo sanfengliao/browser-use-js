@@ -1,17 +1,17 @@
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
-import type { BrowserConfig } from '@/browser/browser'
+import type { BrowserConfig } from '../browser/browser'
 
-import type { ExecuteActions } from '@/controller/registry/view'
+import type { ExecuteActions } from '../controller/registry/view'
 
-import type { DOMElementNode, SelectorMap } from '@/dom/views'
+import type { DOMElementNode, SelectorMap } from '../dom/views'
 import fs from 'node:fs/promises'
 import { v4 as uuidv4 } from 'uuid'
 import { z } from 'zod'
-import { BrowserProfile } from '@/browser/profile'
-import { BrowserStateHistory } from '@/browser/views'
-import { ActionModel } from '@/controller/registry/view'
-import { DOMHistoryElement } from '@/dom/history_tree_processor/view'
+import { BrowserProfile } from '../browser/profile'
+import { BrowserStateHistory } from '../browser/views'
+import { ActionModel } from '../controller/registry/view'
 import { HistoryTreeProcessor } from '../dom/history_tree_processor/service'
+import { DOMHistoryElement } from '../dom/history_tree_processor/view'
 import { MessageManagerState } from './message_manager/view'
 
 // Types for tool calling method

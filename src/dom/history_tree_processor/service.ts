@@ -1,5 +1,5 @@
 import * as crypto from 'node:crypto'
-import { BrowserSession } from '@/browser/session'
+import { BrowserSession } from '../../browser/session'
 import { DOMElementNode } from '../views'
 import { DOMHistoryElement, HashedDomElement } from './view'
 

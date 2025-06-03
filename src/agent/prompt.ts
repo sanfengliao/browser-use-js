@@ -1,5 +1,5 @@
+import type { BrowserStateSummary } from '../browser/views'
 import type { ActionResult, AgentStepInfo } from './views'
-import type { BrowserStateSummary } from '@/browser/views'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'

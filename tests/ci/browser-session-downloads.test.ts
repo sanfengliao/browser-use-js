@@ -5,8 +5,8 @@ import http from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { BrowserProfile } from '@/browser/profile'
-import { BrowserSession } from '@/browser/session'
+import { BrowserProfile } from '../../src/browser/profile'
+import { BrowserSession } from '../../src/browser/session'
 
 // Test HTTP server setup
 class TestServer {

@@ -1,10 +1,10 @@
-import type { DOMBaseNode } from '@/dom/views'
+import type { DOMBaseNode } from '../../src/dom/views'
 import * as fs from 'node:fs'
 import { createInterface } from 'node:readline'
 import { it } from 'vitest'
-import { Browser, BrowserConfig } from '@/browser/browser'
+import { Browser, BrowserConfig } from '../../src/browser/browser'
 
-import { DOMElementNode, DOMTextNode } from '@/dom/views'
+import { DOMElementNode, DOMTextNode } from '../../src/dom/views'
 
 class ElementTreeSerializer {
   static domElementNodeToJson(elementTree: DOMElementNode): Record<string, any> {

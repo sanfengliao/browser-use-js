@@ -5,7 +5,7 @@ import path from 'node:path'
 import { config } from 'dotenv'
 import { PostHog } from 'posthog-node'
 import { v4 as uuidv4 } from 'uuid'
-import { Logger } from '@/logger'
+import { Logger } from '../logger'
 
 config()
 

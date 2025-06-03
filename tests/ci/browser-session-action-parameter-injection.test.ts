@@ -1,8 +1,8 @@
 import { Server } from 'node:http'
 import express from 'express'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { BrowserProfile, BrowserSession } from '@/browser/session'
-import { DOMElementNode } from '@/dom/views'
+import { BrowserProfile, BrowserSession } from '../../src/browser/session'
+import { DOMElementNode } from '../../src/dom/views'
 
 class TestServer {
   private app: express.Application

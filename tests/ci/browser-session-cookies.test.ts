@@ -11,8 +11,8 @@ import fs, { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { BrowserProfile } from '@/browser/profile'
-import { BrowserSession } from '@/browser/session'
+import { BrowserProfile } from '../../src/browser/profile'
+import { BrowserSession } from '../../src/browser/session'
 
 // Set up test logging
 const logger = console

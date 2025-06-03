@@ -2,9 +2,9 @@ import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { Page } from 'playwright'
 
 import type { ZodType } from 'zod'
-import type { ActionResultData } from '@/agent/views'
+import type { ActionResultData } from '../../agent/views'
 
-import type { BrowserSession } from '@/browser/session'
+import type { BrowserSession } from '../../browser/session'
 import { z } from 'zod'
 
 import { zodToJsonSchema } from 'zod-to-json-schema'

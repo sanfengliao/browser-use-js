@@ -1,5 +1,5 @@
 import type { CoordinateSet, HashedDomElement, ViewportInfo } from './history_tree_processor/view'
-import { timeExecutionSync } from '@/utils'
+import { timeExecutionSync } from '../utils'
 import { HistoryTreeProcessor } from './history_tree_processor/service'
 
 abstract class DOMBaseNode {

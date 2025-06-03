@@ -1,8 +1,8 @@
-import type { GetPromptDescriptionParams } from '@/controller/registry/view'
 import type { Page } from 'playwright'
-import { Registry } from '@/controller/registry/service'
-import { ActionRegistry, RegisteredAction } from '@/controller/registry/view'
+import type { GetPromptDescriptionParams } from '../src/controller/registry/view'
 import { describe, expect, it, vi } from 'vitest'
+import { Registry } from '../src/controller/registry/service'
+import { ActionRegistry, RegisteredAction } from '../src/controller/registry/view'
 
 describe('actionFilters', () => {
   it('test_get_prompt_description_no_filters', () => {

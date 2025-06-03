@@ -1,6 +1,6 @@
 import { BrowserContextOptions } from 'playwright'
 import { afterEach, describe, expect, it } from 'vitest'
-import { BrowserProfile, BrowserSession } from '@/browser/session'
+import { BrowserProfile, BrowserSession } from '../../src/browser/session'
 
 describe('browser Session Viewport and Proxy Tests', () => {
   let browserSession: BrowserSession | null = null

@@ -1,5 +1,5 @@
 import { ChatOpenAI } from '@langchain/openai'
-import { Agent } from '@/agent/service'
+import { Agent } from '../src/agent/service'
 
 async function main() {
   const llm = new ChatOpenAI({

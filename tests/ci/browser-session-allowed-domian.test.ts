@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { BrowserProfile } from '@/browser/profile'
-import { BrowserSession } from '@/browser/session'
+import { BrowserProfile } from '../../src/browser/profile'
+import { BrowserSession } from '../../src/browser/session'
 
 describe('testUrlAllowlistSecurity', () => {
   /** Tests for URL allowlist security bypass prevention and URL allowlist glob pattern matching. */

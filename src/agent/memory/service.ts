@@ -1,10 +1,11 @@
-import { Logger } from '@/logger'
-import { timeExecutionAsync } from '@/utils'
 import { BaseChatModel } from '@langchain/core/language_models/chat_models'
-
 import { AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages'
 import { _convertMessagesToOpenAIParams } from '@langchain/openai'
+
 import { MemoryClient as Mem0Memory, Message as MemoryMessage } from 'mem0ai'
+
+import { Logger } from '../../logger'
+import { timeExecutionAsync } from '../../utils'
 import { MessageManager } from '../message_manager/service'
 import { ManagedMessage, MessageMetadata } from '../message_manager/view'
 import { MemoryConfig } from './views'
@@ -197,13 +198,13 @@ export class Memory {
         results.push({
           role,
           content,
-        })
+        } as any)
       } else {
         content.forEach((item) => {
           results.push({
             role,
             content: item.type === 'image_url' ? item : (item as any).text,
-          })
+          } as any)
         })
       }
     })
@@ -213,7 +214,7 @@ export class Memory {
   /**
    * Get message role based on message type
    */
-  private getMessageRole(message: BaseMessage): string {
+  private getMessageRole(message: BaseMessage) {
     const type = message.constructor.name
     if (message instanceof HumanMessage)
       return 'user'

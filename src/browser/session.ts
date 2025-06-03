@@ -3,11 +3,11 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { Browser, BrowserContext, BrowserContextOptions, chromium, ElementHandle, FrameLocator, Page, Request, Response } from 'playwright'
 
-import { Logger } from '@/logger'
-import { AnyFunction } from '@/type'
 import { ClickableElementProcessor } from '../dom/clickable_element_processor/service'
 import { DomService } from '../dom/service'
 import { DOMElementNode, SelectorMap } from '../dom/views'
+import { Logger } from '../logger'
+import { AnyFunction } from '../type'
 import { matchUrlWithDomainPattern, sleep, timeExecutionAsync, timeExecutionSync } from '../utils'
 import { BrowserProfile } from './profile'
 import {

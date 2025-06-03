@@ -1,10 +1,10 @@
 import { Server } from 'node:http'
 import express from 'express'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { BrowserProfile } from '@/browser/profile'
-import { BrowserSession } from '@/browser/session'
-import { ActionModel } from '@/controller/registry/view'
-import { Controller } from '@/controller/service'
+import { BrowserProfile } from '../../src/browser/profile'
+import { BrowserSession } from '../../src/browser/session'
+import { ActionModel } from '../../src/controller/registry/view'
+import { Controller } from '../../src/controller/service'
 
 // Set up test logging
 const logger = console

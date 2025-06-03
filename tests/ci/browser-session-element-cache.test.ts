@@ -7,10 +7,10 @@ import { Server } from 'node:http'
 import express from 'express'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { ActionResult } from '@/agent/views'
-import { BrowserProfile } from '@/browser/profile'
-import { BrowserSession } from '@/browser/session'
-import { Controller } from '@/controller/service'
+import { ActionResult } from '../../src/agent/views'
+import { BrowserProfile } from '../../src/browser/profile'
+import { BrowserSession } from '../../src/browser/session'
+import { Controller } from '../../src/controller/service'
 
 class TestServer {
   private app: express.Application

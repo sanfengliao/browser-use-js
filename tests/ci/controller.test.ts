@@ -1,13 +1,13 @@
-import type { DragDropAction, SendKeysAction } from '@/controller/view'
+import type { DragDropAction, SendKeysAction } from '../../src/controller/view'
 import http from 'node:http'
 import express from 'express'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { ActionResult } from '@/agent/views'
-import { Browser, BrowserConfig } from '@/browser/browser'
-import { BrowserContext } from '@/browser/context'
-import { ActionModel } from '@/controller/registry/view'
-import { Controller } from '@/controller/service'
+import { ActionResult } from '../../src/agent/views'
+import { Browser, BrowserConfig } from '../../src/browser/browser'
+import { BrowserContext } from '../../src/browser/context'
+import { ActionModel } from '../../src/controller/registry/view'
+import { Controller } from '../../src/controller/service'
 
 /**
  * Create a simple HTTP server for testing purposes
