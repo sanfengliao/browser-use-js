@@ -1,5 +1,5 @@
-import type { BrowserStateSummary } from '@/browser/views'
 import type { ActionResult, AgentStepInfo } from './views'
+import type { BrowserStateSummary } from '@/browser/views'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
@@ -184,7 +184,7 @@ export class AgentMessagePrompt {
 The following is one-time information - if you need to remember it write it to memory:
 Current url: ${this.state.url}
 Available tabs:
-${this.state.tabs}
+${JSON.stringify(this.state.tabs)}
 Interactive elements from top layer of the current page inside the viewport:
 ${formattedElementsText}
 ${stepInfoDescription}

@@ -1,16 +1,16 @@
+import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { BrowserConfig } from '@/browser/browser'
-import type { BrowserContextConfig } from '@/browser/context'
 
 import type { ExecuteActions } from '@/controller/registry/view'
-import type { DOMElementNode, SelectorMap } from '@/dom/views'
 
-import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
+import type { DOMElementNode, SelectorMap } from '@/dom/views'
 import fs from 'node:fs/promises'
+import { v4 as uuidv4 } from 'uuid'
+import { z } from 'zod'
+import { BrowserProfile } from '@/browser/profile'
 import { BrowserStateHistory } from '@/browser/views'
 import { ActionModel } from '@/controller/registry/view'
 import { DOMHistoryElement } from '@/dom/history_tree_processor/view'
-import { v4 as uuidv4 } from 'uuid'
-import { z } from 'zod'
 import { HistoryTreeProcessor } from '../dom/history_tree_processor/service'
 import { MessageManagerState } from './message_manager/view'
 
@@ -292,7 +292,7 @@ export class AgentOutput {
       nextGoal: z.string(),
       evaluationPreviousGoal: z.string(),
     }),
-    action: z.array(ActionModel.schema),
+    action: z.array(ActionModel.schema).describe('List of actions to choose to execute'),
   })
 
   /**
@@ -346,7 +346,7 @@ export class AgentOutput {
           nextGoal: z.string(),
           evaluationPreviousGoal: z.string(),
         }),
-        action: z.array(CustomActionModel.schema),
+        action: z.array(CustomActionModel.schema).describe('List of actions to choose to execute'),
       })
     }
 
@@ -460,7 +460,7 @@ interface SavePlaywrightScriptOptions {
   /**
    * Configuration of the original BrowserContext instance
    */
-  contextConfig?: BrowserContextConfig
+  contextConfig?: BrowserProfile
 }
 
 /**

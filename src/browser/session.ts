@@ -625,7 +625,6 @@ export class BrowserSession {
 
   /**
    * Resize any existing page viewports to match the configured size
-   * @returns
    */
   async setupViewports(): Promise<void> {
     // log the viewport settings to terminal
@@ -971,14 +970,8 @@ export class BrowserSession {
             logger.debug(`⬇️  Download triggered. Saved file to: ${downloadPath}`)
             return downloadPath
           } catch (e: any) {
-            if (e.message.includes('TimeoutError')) {
-              // If no download is triggered, treat as normal click
-              logger.debug('No download triggered within timeout. Checking navigation...')
-              await page.waitForLoadState()
-              await this.checkAndHandleNavigation(page)
-            } else {
-              throw e
-            }
+            await page.waitForLoadState()
+            await this.checkAndHandleNavigation(page)
           }
         } else {
           // Standard click logic if no download is expected
@@ -1761,7 +1754,6 @@ export class BrowserSession {
   /**
    * Update and return state.
    * @param focusElement
-   * @returns
    */
   private async getUpdatedState(focusElement: number = -1): Promise<BrowserStateSummary> {
     const page = await this.getCurrentPage()
@@ -2322,7 +2314,7 @@ export class BrowserSession {
 
       // always click the element first to make sure it's in the focus
       await elementHandle.click()
-      await sleep(100)
+      await sleep(0.1)
 
       try {
         const isContenteditable = await isContenteditableHandle.jsonValue() as boolean
@@ -2633,93 +2625,93 @@ export class BrowserSession {
    * This is used to visually indicate that the browser is setting up or waiting.
    */
   async showDvdScreensaverLoadingAnimation(page: Page): Promise<void> {
-    await page.evaluate(() => {
-      document.title = 'Setting up...'
+    // await page.evaluate(() => {
+    //   document.title = 'Setting up...'
 
-      // Create the main overlay
-      const loadingOverlay = document.createElement('div')
-      loadingOverlay.id = 'pretty-loading-animation'
-      loadingOverlay.style.position = 'fixed'
-      loadingOverlay.style.top = '0'
-      loadingOverlay.style.left = '0'
-      loadingOverlay.style.width = '100vw'
-      loadingOverlay.style.height = '100vh'
-      loadingOverlay.style.background = '#000'
-      loadingOverlay.style.zIndex = '99999'
-      loadingOverlay.style.overflow = 'hidden'
+    //   // Create the main overlay
+    //   const loadingOverlay = document.createElement('div')
+    //   loadingOverlay.id = 'pretty-loading-animation'
+    //   loadingOverlay.style.position = 'fixed'
+    //   loadingOverlay.style.top = '0'
+    //   loadingOverlay.style.left = '0'
+    //   loadingOverlay.style.width = '100vw'
+    //   loadingOverlay.style.height = '100vh'
+    //   loadingOverlay.style.background = '#000'
+    //   loadingOverlay.style.zIndex = '99999'
+    //   loadingOverlay.style.overflow = 'hidden'
 
-      // Create the image element
-      const img = document.createElement('img')
-      img.src = 'https://github.com/browser-use.png'
-      img.alt = 'Browser-Use'
-      img.style.width = '200px'
-      img.style.height = 'auto'
-      img.style.position = 'absolute'
-      img.style.left = '0px'
-      img.style.top = '0px'
-      img.style.zIndex = '2'
-      img.style.opacity = '0.8'
+    //   // Create the image element
+    //   const img = document.createElement('img')
+    //   img.src = 'https://github.com/browser-use.png'
+    //   img.alt = 'Browser-Use'
+    //   img.style.width = '200px'
+    //   img.style.height = 'auto'
+    //   img.style.position = 'absolute'
+    //   img.style.left = '0px'
+    //   img.style.top = '0px'
+    //   img.style.zIndex = '2'
+    //   img.style.opacity = '0.8'
 
-      loadingOverlay.appendChild(img)
-      document.body.appendChild(loadingOverlay)
+    //   loadingOverlay.appendChild(img)
+    //   document.body.appendChild(loadingOverlay)
 
-      // DVD screensaver bounce logic
-      let x = Math.random() * (window.innerWidth - 300)
-      let y = Math.random() * (window.innerHeight - 300)
-      let dx = 1.2 + Math.random() * 0.4 // px per frame
-      let dy = 1.2 + Math.random() * 0.4
-      // Randomize direction
-      if (Math.random() > 0.5)
-        dx = -dx
-      if (Math.random() > 0.5)
-        dy = -dy
+    //   // DVD screensaver bounce logic
+    //   let x = Math.random() * (window.innerWidth - 300)
+    //   let y = Math.random() * (window.innerHeight - 300)
+    //   let dx = 1.2 + Math.random() * 0.4 // px per frame
+    //   let dy = 1.2 + Math.random() * 0.4
+    //   // Randomize direction
+    //   if (Math.random() > 0.5)
+    //     dx = -dx
+    //   if (Math.random() > 0.5)
+    //     dy = -dy
 
-      function animate() {
-        const imgWidth = img.offsetWidth || 300
-        const imgHeight = img.offsetHeight || 300
-        x += dx
-        y += dy
+    //   function animate() {
+    //     const imgWidth = img.offsetWidth || 300
+    //     const imgHeight = img.offsetHeight || 300
+    //     x += dx
+    //     y += dy
 
-        if (x <= 0) {
-          x = 0
-          dx = Math.abs(dx)
-        } else if (x + imgWidth >= window.innerWidth) {
-          x = window.innerWidth - imgWidth
-          dx = -Math.abs(dx)
-        }
-        if (y <= 0) {
-          y = 0
-          dy = Math.abs(dy)
-        } else if (y + imgHeight >= window.innerHeight) {
-          y = window.innerHeight - imgHeight
-          dy = -Math.abs(dy)
-        }
+    //     if (x <= 0) {
+    //       x = 0
+    //       dx = Math.abs(dx)
+    //     } else if (x + imgWidth >= window.innerWidth) {
+    //       x = window.innerWidth - imgWidth
+    //       dx = -Math.abs(dx)
+    //     }
+    //     if (y <= 0) {
+    //       y = 0
+    //       dy = Math.abs(dy)
+    //     } else if (y + imgHeight >= window.innerHeight) {
+    //       y = window.innerHeight - imgHeight
+    //       dy = -Math.abs(dy)
+    //     }
 
-        img.style.left = `${x}px`
-        img.style.top = `${y}px`
+    //     img.style.left = `${x}px`
+    //     img.style.top = `${y}px`
 
-        requestAnimationFrame(animate)
-      }
-      animate()
+    //     requestAnimationFrame(animate)
+    //   }
+    //   animate()
 
-      // Responsive: update bounds on resize
-      window.addEventListener('resize', () => {
-        x = Math.min(x, window.innerWidth - img.offsetWidth)
-        y = Math.min(y, window.innerHeight - img.offsetHeight)
-      })
+    //   // Responsive: update bounds on resize
+    //   window.addEventListener('resize', () => {
+    //     x = Math.min(x, window.innerWidth - img.offsetWidth)
+    //     y = Math.min(y, window.innerHeight - img.offsetHeight)
+    //   })
 
-      // Add a little CSS for smoothness
-      const style = document.createElement('style')
-      style.innerHTML = `
-            #pretty-loading-animation {
-                /*backdrop-filter: blur(2px) brightness(0.9);*/
-            }
-            #pretty-loading-animation img {
-                user-select: none;
-                pointer-events: none;
-            }
-        `
-      document.head.appendChild(style)
-    })
+    //   // Add a little CSS for smoothness
+    //   const style = document.createElement('style')
+    //   style.innerHTML = `
+    //         #pretty-loading-animation {
+    //             /*backdrop-filter: blur(2px) brightness(0.9);*/
+    //         }
+    //         #pretty-loading-animation img {
+    //             user-select: none;
+    //             pointer-events: none;
+    //         }
+    //     `
+    //   document.head.appendChild(style)
+    // })
   }
 }

@@ -58,7 +58,7 @@ function logResponse(response: AgentOutput): void {
 
   for (let i = 0; i < response.action.length; i++) {
     logger.info(
-      `🛠️  Action ${i + 1}/${response.action.length}: ${response.action[i].modelDumpJson({ excludeUnset: true })}`,
+      `🛠️  Action ${i + 1}/${response.action.length}: ${JSON.stringify({ ...response.action[i] })}`,
     )
   }
 }
@@ -663,7 +663,7 @@ export class Agent<Context = any> {
         const structuredLlm = this.llm.withStructuredOutput(z.object({
           answer: z.string(),
         }), { includeRaw: true, method })
-        const response = structuredLlm.invoke([{ role: 'human', content: CAPITAL_QUESTION }])
+        const response = await structuredLlm.invoke([{ role: 'human', content: CAPITAL_QUESTION }])
 
         if (!response) {
           console.debug(`🛠️ Tool calling method ${method} failed: empty response`)
@@ -1115,7 +1115,7 @@ export class Agent<Context = any> {
 
       if (isRateLimitError) {
         logger.warn(`${prefix}${errorMsg}`)
-        await sleep(this.settings.retryDelay * 1000)
+        await sleep(this.settings.retryDelay)
       } else {
         logger.error(`${prefix}${errorMsg}`)
       }

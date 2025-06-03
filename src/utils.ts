@@ -405,6 +405,11 @@ export function isSubset<T>(setA: Set<T>, setB: Set<T>): boolean {
   return true
 }
 
+/**
+ *
+ * @param second The number of seconds to sleep
+ * @returns
+ */
 export const sleep = (second: number) => new Promise(resolve => setTimeout(resolve, second * 1000))
 
 export function matchUrlWithDomainPattern(url: string, domainPattern: string, logWarnings: boolean = false): boolean {

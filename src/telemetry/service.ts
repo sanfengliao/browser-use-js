@@ -2,10 +2,10 @@ import type { BaseTelemetryEvent } from './view'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import path from 'node:path'
-import { Logger } from '@/logger'
 import { config } from 'dotenv'
 import { PostHog } from 'posthog-node'
 import { v4 as uuidv4 } from 'uuid'
+import { Logger } from '@/logger'
 
 config()
 
