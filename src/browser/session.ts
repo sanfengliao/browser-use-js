@@ -924,7 +924,7 @@ export class BrowserSession {
    * Get DOM element by index.
    */
   @requireInitialization
-  async getDomElementByIndex(index: number): Promise<any | null> {
+  async getDomElementByIndex(index: number) {
     const selectorMap = await this.getSelectorMap()
     return selectorMap[index]
   }
